@@ -1,12 +1,10 @@
 import tkinter as tk
 from tkinter import filedialog
-from tkinter import *
 from tkinter import ttk
 
 import openpyxl
 from openpyxl.styles import Color, PatternFill, Font, Border
 from openpyxl.utils import get_column_letter
-from openpyxl.utils import column_index_from_string
 from openpyxl.styles import Border, Side
 from openpyxl.styles import Alignment
 
@@ -22,6 +20,7 @@ import os
 import csv
 import tempfile
 import atexit
+import json
 
 
 
@@ -32,22 +31,28 @@ print("Initializing Program")
 print("Checking for Updates")
 
 
-version_number = "23.8.10.2"
-program_needs_update = False
-url = "https://raw.githubusercontent.com/ZacharyACohen/HDXWizard/main/Version%20Number"
-response = requests.get(url)
-if response.status_code == 200:
-    remote_version = response.text.strip()
-    newest_version = remote_version.split("!")[1]
-    print(f"Newest Version: {newest_version}")
-    print(f"Current Version: {version_number}")
-    if newest_version == version_number:
-        print("Program is updated")
+version_number = "23.8.28"
+
+try:
+    program_needs_update = False
+    url = "https://raw.githubusercontent.com/ZacharyACohen/HDXWizard/main/Version%20Number"
+    response = requests.get(url)
+    if response.status_code == 200:
+        remote_version = response.text.strip()
+        newest_version = remote_version.split("!")[1]
+        print(f"Newest Version: {newest_version}")
+        print(f"Current Version: {version_number}")
+        if newest_version == version_number:
+            print("Program is updated")
+        else:
+            print("Please go to https://github.com/ZacharyACohen/HDXWizard.git to update program")
+            program_needs_update = True
     else:
-        print("Please go to https://github.com/ZacharyACohen/HDXWizard.git to update program")
-        program_needs_update = True
-else:
-    print("Failed to Fetch Remote File")
+        print("Failed to Fetch Remote File")
+except:
+    print("Update Check Inconclusive. Could Not Connect to Web")
+    
+print("\n\n")
 
 
 sdbt_xlsx_clicked = False
@@ -530,6 +535,13 @@ def difcond_off():
 
 
 def create_custom_colors():
+    def show_examples():
+        try:
+            os.startfile("Creating Custom Color Schemes.pdf")
+        except:
+            color_error = tk.Label(popup_window_uptake, text="Error, cannot find example file")
+            color_error.place(x=730, y=360)
+            print('yes')
     popup_window_uptake = tk.Toplevel(window)  # Create a new window for the popup menu
     popup_window_uptake.geometry("920x500")
     canvas = tk.Canvas(popup_window_uptake, width=920, height=500)
@@ -775,9 +787,13 @@ def create_custom_colors():
         uptake_text_dic["<0"] = chkval_11.get()
         uptake_text_dic["=0"] = chkval_12.get()
         uptake_text_dic[-99999] = chkval_13.get()
-
-        with open("./Colors/new_uptake_colors.txt", 'w') as f:
-            f.write("Uptake Colors" + "\n" + str(uptake_color_dic) + "\n" + str(uptake_text_dic))
+        json_data = {
+            "header": "Uptake Colors",
+            "uptake_color_dic": uptake_color_dic,
+            "uptake_text_dic": uptake_text_dic
+        }
+        with open("./Colors/new_uptake_colors.json", 'w') as f:
+            json.dump(json_data, f, indent = 4)
         tk.Label(popup_window_uptake, text="File Saved in /Colors. Please Change Name").place(x=100, y=475)
 
 
@@ -810,6 +826,9 @@ def create_custom_colors():
     tk.Label(popup_window_uptake, text="White Text").place(x=565, y=90)
     tk.Label(popup_window_uptake, text="Hexadecimal Color").place(x=727, y=90)
     tk.Label(popup_window_uptake, text="White Text").place(x=847, y=90)
+    #cheese: fix show_examples if there is an error
+    examples_bt = tk.Button(popup_window_uptake, text="See examples", command=show_examples)
+    examples_bt.place(x=825, y=330)
 
 
     plab1 = tk.Label(popup_window_uptake, text="If dif >           :")
@@ -1072,10 +1091,18 @@ def create_custom_colors():
         both_text_dic = {}
         both_text_dic["=0"] = bchkval_1.get()
         both_text_dic[-99999] = bchkval_2.get()
-
-        with open("./Colors/new_dif_colors.txt", 'w') as f:
-            f.write("Difference Colors" + "\n" + str(protection_color_dic) + "\n" + str(protection_text_dic) + "\n" + str(deprotection_color_dic) + "\n" + str(deprotection_text_dic) + "\n" + str(both_color_dic) + "\n" + str(both_text_dic))
-        tk.Label(popup_window_uptake, text="File Saved in /Colors as 'new_dif_colors.text'. Please Change Name").place(x=500, y=455)
+        json_data = {
+            "header": "Difference Colors",
+            "protection_color_dic": protection_color_dic,
+            "protection_text_dic": protection_text_dic,
+            "deprotection_color_dic": deprotection_color_dic,
+            "deprotection_text_dic": deprotection_text_dic,
+            "both_color_dic": both_color_dic,
+            "both_text_dic": both_text_dic
+        }
+        with open("./Colors/new_dif_colors.json", 'w') as f:
+            json.dump(json_data, f, indent=4)
+        tk.Label(popup_window_uptake, text="File Saved in /Colors as 'new_dif_colors.json'. Please Change Name").place(x=500, y=455)
 
 
     save_bt_dif = tk.Button(popup_window_uptake, text = "Save Colors", command=save_colors2)
@@ -1107,16 +1134,16 @@ def create_format_box():
     file_names = os.listdir(folder_path)  # Get a list of file names in the folder
     global uptake_color_scheme_dropdown, difference_color_scheme_dropdown
     uptake_color_scheme_dropdown = ttk.Combobox(window, values=file_names, width=17)
-    uptake_color_scheme_dropdown.set("uptake_default.txt")
+    uptake_color_scheme_dropdown.set("uptake_default.json")
     uptake_color_scheme_dropdown.bind("<<ComboboxSelected>>")
     uptake_color_scheme_dropdown.place(x=1030, y=30)
     tk.Label(window, text="Uptake Colors: ").place(x=930, y=30)
     tk.Label(window, text="Difference Colors: ").place(x=930, y=60)
     difference_color_scheme_dropdown = ttk.Combobox(window, values=file_names, width=17)
     if exp_bt_on_c == True:
-        difference_color_scheme_dropdown.set("exp_dif_default.txt")
+        difference_color_scheme_dropdown.set("exp_dif_default.json")
     if theo_bt_on_c == True:
-        difference_color_scheme_dropdown.set("theo_dif_default.txt")
+        difference_color_scheme_dropdown.set("theo_dif_default.json")
     difference_color_scheme_dropdown.bind("<<ComboboxSelected>>")
     difference_color_scheme_dropdown.place(x=1030, y=60)
     create_colors = tk.Button(window, text="Create Custom Colors", command=create_custom_colors)
@@ -1882,12 +1909,10 @@ def r_initialize():
     uptake_val_9 = 0
     uptake_color_length = 0
     with open("./Colors/" + uptake_color_scheme_dropdown.get(), 'r') as f:
-        lines = []
-        for line in f:
-            lines.append(line)
-        if lines[0].startswith("Uptake Colors"):
-            uptake_color_dic = eval(lines[1])
-            uptake_text_dic = eval(lines[2])
+        json_data = json.load(f)
+        if json_data.get("header") == "Uptake Colors":
+            uptake_color_dic = json_data.get("uptake_color_dic", {})
+            uptake_text_dic = json_data.get("uptake_text_dic", {})
         else:
             comp_error_lab = tk.Label(window, text="Uptake color selection is not compatible")
             comp_error_lab.place(x=1190, y=190)
@@ -1899,7 +1924,7 @@ def r_initialize():
             if key == "=0":
                 uptake_eqz_key = color
                 continue
-            if key == -99999:
+            if key == "-99999":
                 uptake_abs_key = color
                 continue
             if key == ">0":
@@ -1945,7 +1970,7 @@ def r_initialize():
                 uptake_col_9 = color
                 uptake_color_length = 9
             x += 1
-            
+
         for key, text in uptake_text_dic.items():
             try:
                 key = float(key)
@@ -1957,7 +1982,7 @@ def r_initialize():
                 text = 'FF000000'
             if key == "=0":
                 uptake_eqz_text = text
-            if key == -99999:
+            if key == "-99999":
                 uptake_abs_text = text
             if key == ">0":
                 uptake_gtz_text = text
@@ -1996,16 +2021,14 @@ def r_initialize():
     p_col_length = 0
     d_col_length = 0
     with open("./Colors/" + difference_color_scheme_dropdown.get(), 'r') as f:
-        lines = []
-        for line in f:
-            lines.append(line)
-        if lines[0].startswith("Difference Colors"):
-            pval_color_dic = eval(lines[1])
-            pval_text_dic = eval(lines[2])
-            dval_color_dic = eval(lines[3])
-            dval_text_dic = eval(lines[4])
-            bval_color_dic = eval(lines[5])
-            bval_text_dic = eval(lines[6])
+        json_data = json.load(f)
+        if json_data.get("header") == "Difference Colors":
+            pval_color_dic = json_data.get("protection_color_dic", {})
+            pval_text_dic = json_data.get("protection_text_dic", {})
+            dval_color_dic = json_data.get("deprotection_color_dic", {})
+            dval_text_dic = json_data.get("deprotection_text_dic", {})
+            bval_color_dic = json_data.get("both_color_dic", {})
+            bval_text_dic = json_data.get("both_text_dic", {})
         else:
             comp_error_lab = tk.Label(window, text="Difference color selection is not compatible")
             comp_error_lab.place(x=1190, y=190)
@@ -2111,7 +2134,7 @@ def r_initialize():
         for key, color in bval_color_dic.items():
             if key == "=0":
                 b_col_eqz = color
-            if key == -99999:
+            if key == "-99999":
                 b_col_abs = color
         for key, text in bval_text_dic.items():
             if text == 1:
@@ -2120,7 +2143,7 @@ def r_initialize():
                 text = 'FF000000'
             if key == "=0":
                 b_text_eqz = text
-            if key == -99999:
+            if key == "-99999":
                 b_text_abs = text
 
 
@@ -2860,7 +2883,7 @@ def r_make_legend1():
         color = assign_hex(uptake_col_2)
         square_2 = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
         ax.plot([xpos, xpos], [1, 1.3], color='black', linewidth=1)
-        ax.text(xpos, 1.35, round(uptake_val_2) * 100, ha='center', va='bottom', fontsize=12)
+        ax.text(xpos, 1.35, round(uptake_val_2 * 100), ha='center', va='bottom', fontsize=12)
         xpos -= 1
         ax.add_patch(square_2)
     if uptake_color_length >= 3:
@@ -2933,12 +2956,12 @@ def r_make_legend1():
     ax.set_ylim(-3, 2.5)
     ax.set_xticks([])
     ax.set_yticks([])
-    fig.savefig('./RecentLegends/uptakelegend.png', dpi=300) 
-    plt.close() 
+    fig.savefig('./RecentLegends/uptakelegend.png', dpi=300)
+    plt.close()
     img = openpyxl.drawing.image.Image('./RecentLegends/uptakelegend.png')
     img.anchor = 'A1'
     ws.add_image(img)
-    
+
 def r_make_legend2():
     fig, ax = plt.subplots()
     xpos = p_col_length + d_col_length + 1
@@ -3001,8 +3024,6 @@ def r_make_legend2():
     color = assign_hex(p_col_gtz)
     square_7 = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
     ax.plot([xpos, xpos], [1, 1.3], color='black', linewidth=1)
-    #ax.annotate('', xy=(xpos+1, -0.5), xytext=(xpos-1, -0.5), arrowprops=dict(arrowstyle='wavy,tail_width=0.5', lw=1))
-    #cheese: add curly bracket
     xpos -= 1
     ax.add_patch(square_7)
     if p_col_length >= 5:
@@ -3069,8 +3090,8 @@ def r_make_legend2():
     ax.set_ylim(-3, 2.5)
     ax.set_xticks([])
     ax.set_yticks([])
-    fig.savefig('./RecentLegends/differencelegend.png', dpi=300) 
-    plt.close() 
+    fig.savefig('./RecentLegends/differencelegend.png', dpi=300)
+    plt.close()
     ws = wb['Figure Legends']
     img = openpyxl.drawing.image.Image('./RecentLegends/differencelegend.png')
     img.anchor = 'A80'
