@@ -12,10 +12,17 @@ import numpy as np
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.backends.backend_pdf import PdfPages
+from matplotlib.ticker import AutoMinorLocator
+from matplotlib.lines import Line2D
+
 
 import webbrowser
 import requests
-
+import shutil
+import re
 import os
 import csv
 import tempfile
@@ -31,7 +38,7 @@ print("Initializing Program")
 print("Checking for Updates")
 
 
-version_number = "23.8.28"
+version_number = "23.10.03"
 
 try:
     program_needs_update = False
@@ -55,6 +62,9 @@ except:
 print("\n\n")
 
 
+os.makedirs('RecentLegends', exist_ok=True)
+os.makedirs('./UptakePlots', exist_ok=True)
+
 sdbt_xlsx_clicked = False
 sdbt_csv_clicked = False
 seqbt_txt_clicked = False
@@ -76,75 +86,85 @@ def open_sd_file_xlsx():
         workbook = openpyxl.Workbook()
         worksheet = workbook.active
 
+        try:
+            source_workbook = openpyxl.load_workbook(sd_file_path)
+            source_worksheet = source_workbook.active
+            for row in source_worksheet.iter_rows(values_only=True):
+                worksheet.append(row)
 
-        source_workbook = openpyxl.load_workbook(sd_file_path)
-        source_worksheet = source_workbook.active
-        for row in source_worksheet.iter_rows(values_only=True):
-            worksheet.append(row)
-
-        for row in worksheet.iter_rows():
-            cella = row[12]
-            if cella.value == "NaN" or cella.value == "":
-                cella.value = -99999
-            cellb = row[8]  # Assuming column I is the 9th column (index 8)
-            if cellb.value:
-                cellb.value = cellb.value.replace("~", "_")
-                cellb.value = cellb.value.replace("|", "_")
-                cellb.value = cellb.value.replace(" ", "_")
-            celle = row[0]
-            if celle.value:
-                celle.value = celle.value.replace("~", "_")
-                celle.value = celle.value.replace("|", "_")
-                celle.value = celle.value.replace(" ", "_")
-            cellc = row[4]
-            celld = row[5]
-            cellc.value = None
-            celld.value = None
-            cellf = row[13]
-            if cellf.value == "NaN" or cellf.value == "":
-                cellf.value = -99999
-
-
-        temp_file_path_excel = tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False).name
-        workbook.save(temp_file_path_excel)
-        atexit.register(os.remove, temp_file_path_excel)
-
-        output_file_path = temp_file_path_excel.replace('.xlsx', '.txt')
-        atexit.register(os.remove, output_file_path)
-        with open(output_file_path, 'w', newline='') as file:
-            writer = csv.writer(file, delimiter='\t')
             for row in worksheet.iter_rows():
-                writer.writerow([cell.value for cell in row])
+                cella = row[12]
+                if cella.value == "NaN" or cella.value == "":
+                    cella.value = -99999
+                cellb = row[8]  # Assuming column I is the 9th column (index 8)
+                if cellb.value:
+                    cellb.value = cellb.value.replace("~", "_")
+                    cellb.value = cellb.value.replace("|", "_")
+                    cellb.value = cellb.value.replace(" ", "_")
+                celle = row[0]
+                if celle.value:
+                    celle.value = celle.value.replace("~", "_")
+                    celle.value = celle.value.replace("|", "_")
+                    celle.value = celle.value.replace(" ", "_")
+                cellc = row[4]
+                celld = row[5]
+                cellc.value = None
+                celld.value = None
+                cellf = row[13]
+                if cellf.value == "NaN" or cellf.value == "":
+                    cellf.value = -99999
+
+
+            temp_file_path_excel = tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False).name
+            workbook.save(temp_file_path_excel)
+            atexit.register(os.remove, temp_file_path_excel)
+
+            output_file_path = temp_file_path_excel.replace('.xlsx', '.txt')
+            atexit.register(os.remove, output_file_path)
+            with open(output_file_path, 'w', newline='') as file:
+                writer = csv.writer(file, delimiter='\t')
+                for row in worksheet.iter_rows():
+                    writer.writerow([cell.value for cell in row])
 
 
 
-        if output_file_path:
-            with open(output_file_path, "r") as f:
-                lines2 = f.readlines()
-                lines = lines2[1:]
-            if len(data) == 0:
-                data = [line.strip().split() for line in lines]
-            else:
-                new_data = [line.strip().split() for line in lines]
-                for line in new_data:
-                    data.append(line)
-
+            if output_file_path:
+                with open(output_file_path, "r") as f:
+                    lines2 = f.readlines()
+                    lines = lines2[1:]
+                if len(data) == 0:
+                    data = [line.strip().split() for line in lines]
+                else:
+                    new_data = [line.strip().split() for line in lines]
+                    for line in new_data:
+                        data.append(line)
             sdbt_xlsx_2 = tk.Button(window, text=".xlsx", bg="green", fg="white",  width=5, command=open_sd_file_xlsx)
             sdbt_xlsx_2.place(x=170, y=30)
             sdbt_xlsx_clicked = True
-
-            sdbt_csv = tk.Button(window, text=".csv",bg="orange",fg="black", width=5, command=open_sd_file_csv)
-            sdbt_csv.place(x=120, y=30)
-            sdbt_csv_clicked = False
+        except PermissionError:
+            tk.messagebox.showerror("File Access Error", "Cannot access the file. Please ensure the file is not open in another program and try again.")
+            sdbt_xlsx_2 = tk.Button(window, text=".xlsx", bg="orange", fg="black",  width=5, command=open_sd_file_xlsx)
+            sdbt_xlsx_2.place(x=170, y=30)
+            sdbt_xlsx_clicked = True
+        except Exception as e:
+            tk.messagebox.showerror("Error", f"An unexpected error occurred: {str(e)}")
+            sdbt_xlsx_2 = tk.Button(window, text=".xlsx", bg="orange", fg="black",  width=5, command=open_sd_file_xlsx)
+            sdbt_xlsx_2.place(x=170, y=30)
+            sdbt_xlsx_clicked = True
 
 
 
             check_button_clicks()
+    else:
+        sdbt_xlsx.config(state="normal")
+        sdbt_xlsx.config(relief="raised", bg="orange", fg="black")
 
 prot_seq_dic = {}
 def open_sd_file_csv():
     global sdbt_csv_clicked, data, sdbt_xlsx_clicked, temp_file_path_excel
-
+    
+    sdbt_csv.config(state="disabled")
+    sdbt_csv.config(relief="sunken", bg="white", fg="black")
     sd_file_path = filedialog.askopenfilename(filetypes=[("CSV Files", "*.csv")])
     if sd_file_path.endswith(".csv"):
         workbook = openpyxl.Workbook()
@@ -205,9 +225,9 @@ def open_sd_file_csv():
 
 
 
-            sdbt_xlsx =tk.Button(window, text=".xlsx",bg="orange",fg="black", width=5, command=open_sd_file_xlsx)
-            sdbt_xlsx.place(x=170,y=30)
-            sdbt_xlsx_clicked = False
+#            sdbt_xlsx =tk.Button(window, text=".xlsx",bg="orange",fg="black", width=5, command=open_sd_file_xlsx)
+#            sdbt_xlsx.place(x=170,y=30)
+#            sdbt_xlsx_clicked = False
 
 
             sdbt_csv_2 = tk.Button(window, text=".csv", bg="green", fg="white",  width=5,  command=open_sd_file_csv)
@@ -217,6 +237,13 @@ def open_sd_file_csv():
 
 
             check_button_clicks()
+    else:
+        if sdbt_csv_clicked == True:
+            sdbt_csv.config(state="normal")
+            sdbt_csv.config(relief="raised", bg="green", fg="white")
+        else:
+            sdbt_csv.config(state="normal")
+            sdbt_csv.config(relief="raised", bg="orange", fg="black")
 
 
 
@@ -338,13 +365,14 @@ def open_info():
     try:
         os.startfile("HDXWizard_Operating_Instructions_1.0.pdf")
     except:
-        info_error = tk.Label(window, text="Error, cannot find information file")
-        info_error.place(x=120, y=120)
+        tk.messagebox.showerror("Error", "Cannot find operating instructions file")
 
 window = tk.Tk()
-window.geometry("1500x760")
+window.geometry("1500x900")
+if os.name == 'nt':
+    window.state('zoomed')
 window.title("HDXWizard")
-canvas = tk.Canvas(window, width=1500, height=760)
+canvas = tk.Canvas(window, width=1500, height=900)
 canvas.place(x=0, y=0)
 
 def go_to_git():
@@ -403,7 +431,7 @@ seq_explain_lb2 = tk.Label(window, text="For .txt (p), add one file containing o
 seq_explain_lb2.place(x=15, y=120)
 
 info_bt = tk.Button(window, text="INFO", bg="grey", fg="black", command=open_info)
-info_bt.place(x=600, y=500)
+info_bt.place(x=1300, y=500)
 
 
 
@@ -419,21 +447,10 @@ def check_button_clicks():
         theo_bt.place(x=50, y=190)
 
         x1 = 10
-        y = 152
+        y1 = 152
         x2 = 370
-        canvas.create_line(x1, y, x2, y)
-
-        x = 10
-        y1 = 152
-        y2 = 750
-
-        canvas.create_line(x, y1, x, y2)
-
-        x = 370
-        y1 = 152
-        y2 = 750
-
-        canvas.create_line(x, y1, x, y2)
+        y2 = 880
+        canvas.create_rectangle(x1, y1, x2, y2, outline="black", fill="")
 
 
 x1, y1 = 10, 10  # Top-left coordinates of the rectangle
@@ -459,11 +476,13 @@ def start_progress():
         pmax = pmax + len(statedic_of_pepdic_cor)
     if difcond_bt_on:
         pmax = pmax + len(new_dic_of_dif_list)
+    if uptake_plot_bt_on:
+        pmax = pmax + 2
     style = ttk.Style()
     style.theme_use('clam')
     style.configure("blue.Horizontal.TProgressbar", foreground='blue', background='blue')
     progress = ttk.Progressbar(window, style='blue.Horizontal.TProgressbar', orient='horizontal', mode='determinate', length=200, maximum=pmax)
-    progress.place(x=1270, y=160, width=200, height=25)  # Position the progress bar at the bottom left
+    progress.place(x=1270, y=200, width=200, height=25)  # Position the progress bar at the bottom left
     window.update()
 
 difmap_bt_on = False
@@ -472,6 +491,7 @@ chic_bt_on = False
 cdif_bt_on = False
 condpeps_bt_on = False
 difcond_bt_on = False
+uptake_plot_bt_on = False
 def difmap_on():
     global difmap_bt_on
     difmap_bt_2 = tk.Button(window, text="Peptide Difference",bg="green",fg="white",width=17, command=difmap_off)
@@ -532,16 +552,24 @@ def difcond_off():
     difcond_bt = tk.Button(window, text="Condensed Difference",bg="orange",fg="black",width=17, command=difcond_on)
     difcond_bt.place(x=1340,y=120)
     difcond_bt_on = False
-
+def uptake_plot_on():
+    global uptake_plot_bt_on
+    uptake_plot_bt = tk.Button(window, text="Uptake Plots",bg="green", fg="white", width=17, command=uptake_plot_off)
+    uptake_plot_bt.place(x=1190, y=160)
+    uptake_plot_bt_on = True
+def uptake_plot_off():
+    global uptake_plot_bt_on
+    uptake_plot_bt = tk.Button(window, text="Uptake Plots",bg="orange", fg="black", width=17, command=uptake_plot_on)
+    uptake_plot_bt.place(x=1190, y=160)
+    uptake_plot_bt_on = False
 
 def create_custom_colors():
     def show_examples():
         try:
             os.startfile("Creating Custom Color Schemes.pdf")
         except:
-            color_error = tk.Label(popup_window_uptake, text="Error, cannot find example file")
-            color_error.place(x=730, y=360)
-            print('yes')
+            tk.messagebox.showerror("Error", "Cannot find example file")
+            
     popup_window_uptake = tk.Toplevel(window)  # Create a new window for the popup menu
     popup_window_uptake.geometry("920x500")
     canvas = tk.Canvas(popup_window_uptake, width=920, height=500)
@@ -722,8 +750,9 @@ def create_custom_colors():
 
 
         if potential_val_error_1 == True:
-            tk.Label(popup_window_uptake, text=f"Potential Error found. {next_val} > {val}").place(x=100, y=460)
+            tk.messagebox.showwarning("Potential Error Found", f"{next_val} > {val}. This may cause an error when running the program. Please list RFU criticial points in descending order")
         if potential_val_error_2 == True:
+            tk.messagebox.showwarning("Potential Error Found", f"{val} > 1. This may cause an error when running the program. Please list RFUs as a decimal.")
             tk.Label(popup_window_uptake, text=f"Potential Error found. {val} > 1")
 
 
@@ -792,9 +821,22 @@ def create_custom_colors():
             "uptake_color_dic": uptake_color_dic,
             "uptake_text_dic": uptake_text_dic
         }
-        with open("./Colors/new_uptake_colors.json", 'w') as f:
-            json.dump(json_data, f, indent = 4)
-        tk.Label(popup_window_uptake, text="File Saved in /Colors. Please Change Name").place(x=100, y=475)
+        
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".json",
+            initialdir="./Colors",
+            title="Save File",
+            initialfile="new_uptake_colors",
+            filetypes=[("JSON files", "*.json")]
+        )
+        if file_path:
+            with open(file_path, 'w') as f:
+                json.dump(json_data, f, indent=4)
+                title = os.path.basename(file_path)
+                tk.messagebox.showinfo("File Saved", f"File Saved as {title}")
+        else:
+            tk.messagebox.showerror("File Not Saved", "File was not saved")
+        
 
 
 
@@ -826,7 +868,6 @@ def create_custom_colors():
     tk.Label(popup_window_uptake, text="White Text").place(x=565, y=90)
     tk.Label(popup_window_uptake, text="Hexadecimal Color").place(x=727, y=90)
     tk.Label(popup_window_uptake, text="White Text").place(x=847, y=90)
-    #cheese: fix show_examples if there is an error
     examples_bt = tk.Button(popup_window_uptake, text="See examples", command=show_examples)
     examples_bt.place(x=825, y=330)
 
@@ -1019,7 +1060,8 @@ def create_custom_colors():
                     potential_val_error_1 = True
                     break
         if potential_val_error_1 == True:
-            tk.Label(popup_window_uptake, text=f"Potential Error found. {next_val} > {val}").place(x=500, y=420)
+            tk.messagebox.showwarning("Potential Error Found", f"{next_val} > {val}. This may cause an error when running the program. Please make sure differences are listed in descending differences, and not that both protection and deprotection values should be written as a positive number")
+           
 
         protection_color_dic = {}
         if pval1.get() != "" and pcol1.get() != "":
@@ -1100,9 +1142,23 @@ def create_custom_colors():
             "both_color_dic": both_color_dic,
             "both_text_dic": both_text_dic
         }
-        with open("./Colors/new_dif_colors.json", 'w') as f:
-            json.dump(json_data, f, indent=4)
-        tk.Label(popup_window_uptake, text="File Saved in /Colors as 'new_dif_colors.json'. Please Change Name").place(x=500, y=455)
+        
+        
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".json",
+            initialdir="./Colors",
+            title="Save File",
+            initialfile="new_dif_colors",
+            filetypes=[("JSON files", "*.json")]
+        )
+        if file_path:
+            with open(file_path, 'w') as f:
+                json.dump(json_data, f, indent=4)
+                title = os.path.basename(file_path)
+                tk.messagebox.showinfo("File Saved", f"File Saved as {title}")
+        else:
+            tk.messagebox.showerror("File Not Saved", "File was not saved")
+    
 
 
     save_bt_dif = tk.Button(popup_window_uptake, text = "Save Colors", command=save_colors2)
@@ -1214,7 +1270,7 @@ def create_run_box():
     canvas.create_rectangle(x1, y1, x2, y2, outline="black", fill="")
 
     run_bt = tk.Button(window, text="\u23F5",bg="blue",fg="white",width=7, command=r_initialize)
-    run_bt.place(x=1190,y=160)
+    run_bt.place(x=1190,y=200)
     chic_bt = tk.Button(window, text="Chiclet Plot",bg="orange",fg="black", width=17, command=chiclet_on)
     chic_bt.place(x=1190,y=40)
     cdif_bt = tk.Button(window, text="Chiclet Difference",bg="orange",fg="black", width=17, command=cdif_on)
@@ -1227,8 +1283,553 @@ def create_run_box():
     condpep_bt.place(x=1190,y=120)
     difcond_bt = tk.Button(window, text="Condensed Difference",bg="orange",fg="black",width=17, command=difcond_on)
     difcond_bt.place(x=1340,y=120)
+    uptake_plot_bt = tk.Button(window, text="Uptake Plots",bg="orange", fg="black", width=17, command=uptake_plot_on)
+    uptake_plot_bt.place(x=1190, y=160)
+    
 
+def create_uptakeplot_box():
+    global correction, uptake_plot_colors, uptake_plot_symbols, show_last, state_selects, col_entries, sym_entries, size_entries, x_enter, y_enter, linewidth_enter, pep_search_enter, a_horizontal, a_vertical, title_entries, legend_size_entry, leg_ur, leg_ul, leg_bl, leg_br, leg_pos, legend_linewidth_entry
+    x1, y1 = 372, 452
+    x2, y2 = 1268, 880
+    canvas.create_rectangle(x1, y1, x2, y2, outline="black", fill="")
+    tk.Label(window, text="Format Uptake Plots").place(x=380, y=455)
+    tk.Label(window, text="Y Axis:").place(x=500, y=455)
+    y_enter = tk.Entry(window, width=15)
+    y_enter.place(x=540, y=455)
+    y_enter.insert(0, "Uptake (Da)")
+    tk.Label(window, text="X Axis:").place(x=640, y=455)
+    x_enter = tk.Entry(window, width=15)
+    x_enter.place(x=680, y=455)
+    x_enter.insert(0, "Exposure (min)")
+    Uncorrected_plot_bt = tk.Button(window, text="Uncorrected", bg="green", fg="white", command=lambda: [r_unc_bt_off(), r_c_bt_on()])
+    Uncorrected_plot_bt.place(x=375, y=480)
+    corrected_plot_bt = tk.Button(window, text="Corrected", bg="orange", fg="black", command=lambda: [r_unc_bt_off(), r_c_bt_on()])
+    corrected_plot_bt.place(x=461, y=480)
+    show_last_bt = tk.Button(window, text="Show Last Timepoint", bg="green", fg="white", command=show_last_bt_off)
+    show_last_bt.place(x=535, y=480)
+    show_bt = tk.Button(window, text="Show", command=create_example_plot)
+    show_bt.place(x=663, y=480)
+    tk.Label(window, text="Linewidth:").place(x=375, y=510)
+    linewidth_enter = tk.Entry(window, width=3)
+    linewidth_enter.place(x=435, y=510)
+    linewidth_enter.insert(0, "1")
+    tk.Label(window, text="Search for startvalue:").place(x=480, y=510)
+    pep_search_enter = tk.Entry(window, width=5)
+    pep_search_enter.place(x=600, y=510)
+    next_bt = tk.Button(window, text="Next Peptide", command=next_peptide)
+    next_bt.place(x=708, y=480)
+    previous_bt = tk.Button(window, text="Last Peptide", command=previous_peptide)
+    previous_bt.place(x=710, y=510)
+    search_bt = tk.Button(window, text="Search", command=searching)
+    search_bt.place(x=660, y=510)
+    horizontal_bt = tk.Button(window, text="Horizontal", bg="green", fg="white", command=lambda: [horizontal_bt_off(), vertical_bt_on()], width=8)
+    horizontal_bt.place(x=787, y=480)
+    vertical_bt = tk.Button(window, text="Vertical", bg="orange", fg="black", command=lambda: [horizontal_bt_off(), vertical_bt_on()], width=8)
+    vertical_bt.place(x=787, y=510)
+    a_horizontal = True
+    a_vertical = False
+    correction = False
+    show_last = True
+    
+    tk.Label(window, text="State").place(x=425, y=537)
+    tk.Label(window, text="Hex Color").place(x=573, y=537)
+    tk.Label(window, text="Unicode Symbol").place(x=633, y=537)
+    tk.Label(window, text="Size").place(x=738, y=537)
+    tk.Label(window, text="Title").place(x=790, y=537)
+    
+    uptake_plot_colors = ["1F77B4", "FF7F0E", "2CA02C", "D62728", "9467BD", "8C564B", "E377C2", "7F7F7F", "BCBD22", "17BECF"]
+    uptake_plot_symbols = ["U+2B24", "U+25A0", "U+25B2", "U+25C6", "U+25BC", "U+25CB", "U+25A1", "U+025C1", "U+025C7", "U+025AE"]
+    
+    state_selects = []
+    col_entries = []
+    sym_entries = []
+    size_entries = []
+    title_entries = []
+    x = 0
+    states_o = list(states.keys())
+    for state in states_o:
+        if x <= 9:
+            x += 1
+            state_var = tk.StringVar(value=state)
+            na_var = tk.StringVar(value="N/A")
+            state_select = ttk.Combobox(window, values=(states_o + ["N/A"]), width=28)
+            state_select.place(x=375, y=(537 + (20*x)))
+            if x <= 2:
+                state_select.set(state_var.get())
+            else:
+                state_select.set(na_var.get())
+            title_entry = tk.Entry(window, width=13)
+            state_select.bind("<<ComboboxSelected>>", lambda event, title_entry=title_entry, state_select=state_select: on_state_selected(event, title_entry, state_select))
+            col_entry = tk.Entry(window, width=9)
+            col_entry.place(x=580, y=(537 + (20*x)))
+            col_entry.insert(0, uptake_plot_colors[x-1])
+            sym_entry = tk.Entry(window, width=9)
+            sym_entry.place(x=648, y=(537 + (20*x)))
+            sym_entry.insert(0, uptake_plot_symbols[x-1])
+            size_entry = tk.Entry(window, width=3)
+            size_entry.place(x=740, y=(537 + (20*x)))
+            size_entry.insert(0, "10")
+            if x <= 2:
+                title_entry.insert(0, state.split("~")[1])
+            title_entry.place(x=770, y=(537 + (20*x)))
+            state_selects.append(state_select)
+            col_entries.append(col_entry)
+            sym_entries.append(sym_entry)
+            size_entries.append(size_entry)
+            title_entries.append(title_entry)
+    tk.Label(window, text="Legend Options").place(x=380, y=770)
+    x1 = 375
+    y = 795
+    x2 = 610
+    canvas.create_line(x1, y, x2, y)
+    tk.Label(window, text="Legend Size:").place(x=550, y=810)
+    legend_size_entry = tk.Entry(window, width = 6)
+    legend_size_entry.insert(0, "10")
+    legend_size_entry.place(x=625, y=812)
+    tk.Label(window, text="Legend Linewidth:").place(x=550, y=840)
+    legend_linewidth_entry = tk.Entry(window, width=6)
+    legend_linewidth_entry.insert(0, "1")
+    legend_linewidth_entry.place(x=655, y=842)
+    
+    leg_ur = False
+    leg_ul = False
+    leg_bl = False
+    leg_br = False
+    ur_bt = tk.Button(window, text="Upper Right", bg="orange", fg="black", width = 10, command = lambda: [ur_bt_on(), ul_bt_off(), bl_bt_off(), br_bt_off()])
+    ur_bt.place(x=465, y=810)
+    ul_bt = tk.Button(window, text="Upper Left",  bg="orange", fg="black" ,width = 10, command = lambda: [ur_bt_off(), ul_bt_on(), bl_bt_off(), br_bt_off()])
+    ul_bt.place(x=380, y=810)
+    br_bt = tk.Button(window, text="Bottom Right", bg="orange", fg="black", width = 10, command = lambda: [ur_bt_off(), ul_bt_off(), bl_bt_off(), br_bt_on()])
+    br_bt.place(x=465, y=840)
+    bl_bt = tk.Button(window, text="Bottom Left",  bg="orange", fg="black" ,width = 10, command = lambda: [ur_bt_off(), ul_bt_off(), bl_bt_on(), br_bt_off()])
+    bl_bt.place(x=380, y=840)
+    create_example_plot()
+    
+def ur_bt_on():
+    global leg_ur, leg_ul, leg_bl, leg_br, leg_pos
+    leg_ur = True
+    leg_ul = False
+    leg_bl = False
+    leg_br = False
+    leg_pos = 'upper right'
+    ur_bt = tk.Button(window, text="Upper Right", bg="green", fg="white", width = 10, command = ur_bt_off)
+    ur_bt.place(x=465, y=810)
+    create_example_plot()
+    
+def ur_bt_off():
+    global leg_ur
+    leg_ur = False
+    ur_bt = tk.Button(window, text="Upper Right", bg="orange", fg="black", width = 10, command = lambda: [ur_bt_on(), ul_bt_off(), bl_bt_off(), br_bt_off()])
+    ur_bt.place(x=465, y=810)
+    
+def ul_bt_on():
+    global leg_ur, leg_ul, leg_bl, leg_br, leg_pos
+    leg_ur = False
+    leg_ul = True
+    leg_bl = False
+    leg_br = False
+    leg_pos = 'upper left'
+    ul_bt = tk.Button(window, text="Upper Left",  bg="green", fg="white" ,width = 10, command = ul_bt_off)
+    ul_bt.place(x=380, y=810)
+    create_example_plot()
 
+def ul_bt_off():
+    global leg_ul
+    leg_ul = False
+    ul_bt = tk.Button(window, text="Upper Left",  bg="orange", fg="black" ,width = 10, command = lambda: [ur_bt_off(), ul_bt_on(), bl_bt_off(), br_bt_off()])
+    ul_bt.place(x=380, y=810)
+    
+def bl_bt_on():
+    global leg_ur, leg_ul, leg_bl, leg_br, leg_pos
+    leg_ur = False
+    leg_ul = False
+    leg_bl = True
+    leg_br = False
+    leg_pos = 'lower left'
+    bl_bt = tk.Button(window, text="Bottom Left",  bg="green", fg="white" ,width = 10, command = bl_bt_off)
+    bl_bt.place(x=380, y=840)
+    create_example_plot()
+    
+def bl_bt_off():
+    global leg_bl
+    leg_bl = False
+    bl_bt = tk.Button(window, text="Bottom Left",  bg="orange", fg="black" ,width = 10, command = lambda: [ur_bt_off(), ul_bt_off(), bl_bt_on(), br_bt_off()])
+    bl_bt.place(x=380, y=840)
+    
+def br_bt_on():
+    global leg_ur, leg_ul, leg_bl, leg_br, leg_pos
+    leg_ur = False
+    leg_ul = False
+    leg_bl = False
+    leg_br = True
+    leg_pos = 'lower right'
+    br_bt = tk.Button(window, text="Bottom Right", bg="green", fg="white", width = 10, command = br_bt_on)
+    br_bt.place(x=465, y=840)
+    create_example_plot()
+
+def br_bt_off():
+    global leg_br
+    leg_br = False
+    br_bt = tk.Button(window, text="Bottom Right", bg="orange", fg="black", width = 10, command = lambda: [ur_bt_off(), ul_bt_off(), bl_bt_off(), br_bt_on()])
+    br_bt.place(x=465, y=840)
+    
+    
+
+    
+def on_state_selected(event, title_entry, state_select):
+    selected_value = state_select.get()
+    if "~" in selected_value:
+        title_entry.delete(0, tk.END)
+        title_entry.insert(0, selected_value.split("~")[1])
+    elif selected_value == "N/A":
+        title_entry.delete(0, tk.END)
+    else:
+        title_entry.delete(0, tk.END)
+        title_entry.insert(0, selected_value)
+
+def next_peptide():
+    global current_peptide_index
+    current_peptide_index += 1
+    create_example_plot()
+
+def previous_peptide():
+    global current_peptide_index
+    current_peptide_index -= 1
+    create_example_plot()
+
+def r_unc_bt_on():
+    global correction
+    correction = False
+    Uncorrected_plot_bt = tk.Button(window, text="Uncorrected", bg="green", fg="white", command=lambda: [r_unc_bt_off(), r_c_bt_on()])
+    Uncorrected_plot_bt.place(x=375, y=480)
+    create_example_plot()
+    
+def r_unc_bt_off():
+    global correction
+    correction = True
+    Uncorrected_plot_bt = tk.Button(window, text="Uncorrected", bg="orange", fg="black", command=lambda: [r_unc_bt_on(), r_c_bt_off()])
+    Uncorrected_plot_bt.place(x=375, y=480)
+    create_example_plot()
+
+def r_c_bt_on():
+    global correction
+    correction = True
+    corrected_plot_bt = tk.Button(window, text="Corrected", bg="green", fg="white", command=lambda: [r_unc_bt_on(), r_c_bt_off()])
+    corrected_plot_bt.place(x=461, y=480)
+    create_example_plot()
+
+def r_c_bt_off():
+    global correction
+    correction = False
+    corrected_plot_bt = tk.Button(window, text="Corrected", bg="orange", fg="black", command=lambda: [r_unc_bt_off(), r_c_bt_on()])
+    corrected_plot_bt.place(x=461, y=480)
+    create_example_plot()
+
+def show_last_bt_on():
+    global show_last
+    show_last = True
+    show_last_bt = tk.Button(window, text="Show Last Timepoint", bg="green", fg="white", command=show_last_bt_off)
+    show_last_bt.place(x=535, y=480)
+    create_example_plot()
+    
+def show_last_bt_off():
+    global show_last
+    show_last = False
+    show_last_bt = tk.Button(window, text="Show Last Timepoint", bg="orange", fg="black", command=show_last_bt_on)
+    show_last_bt.place(x=535, y=480)
+    create_example_plot()
+    
+def horizontal_bt_on():
+    global a_horizontal, a_vertical
+    horizontal_bt = tk.Button(window, text="Horizontal", bg="green", fg="white", command=lambda: [horizontal_bt_off(), vertical_bt_on()], width=8)
+    horizontal_bt.place(x=787, y=480)
+    a_horizontal = True
+    a_vertical = False
+
+def horizontal_bt_off():
+    global a_horizontal, a_vertical
+    horizontal_bt = tk.Button(window, text="Horizontal", bg="orange", fg="black", command=lambda: [horizontal_bt_on(), vertical_bt_off()], width=8)
+    horizontal_bt.place(x=787, y=480)
+    a_horizontal = False
+    a_vertical = True
+    
+def vertical_bt_on():
+    global a_horizontal, a_vertical
+    print("vertical button turning on")
+    vertical_bt = tk.Button(window, text="Vertical", bg="green", fg="white", command=lambda: [horizontal_bt_on(), vertical_bt_off()], width=8)
+    vertical_bt.place(x=787, y=510)
+    a_vertical = True
+    a_horizontal = False
+    
+def vertical_bt_off():
+    global a_horizontal, a_vertical
+    print("vertical button turning off")
+    vertical_bt = tk.Button(window, text="Vertical", bg="orange", fg="black", command=lambda: [horizontal_bt_off(), vertical_bt_on()], width=8)
+    vertical_bt.place(x=787, y=510)
+    a_vertical = False
+    a_horizontal = True
+
+global search_on
+search_on = False
+def searching():
+    global search_on
+    search_on = True
+    create_example_plot()
+    
+def search_for_startvalue():
+    if pep_search_enter.get() == None:
+        return False
+    try: 
+        pep_search_num = int(pep_search_enter.get())
+        return pep_search_num
+    except:
+        return False
+        
+    
+    
+def is_valid_hexadecimal(s):
+    return bool(re.fullmatch(r'#[0-9a-fA-F]{6}|[0-9a-fA-F]{6}|#[0-9a-fA-F]{8}|[0-9a-fA-F]{8}', s))
+
+def is_valid_unicode(input_str):
+    try:
+        input_str.encode('utf-8').decode('utf-8')
+        return True
+    except UnicodeError:
+        return False
+
+def parse_data():
+    global up_plot_colors, up_plot_symbols, up_plot_sizes, up_plot_titles
+    global order_color_dic, order_symbol_dic, order_size_dic, order_state_dic, orders, linewidth_in_use, order_title_dic
+    up_plot_states = []
+    up_plot_colors = []
+    up_plot_symbols = []
+    up_plot_sizes = []
+    up_plot_titles = []
+    for i, state in enumerate(state_selects):
+        if is_valid_hexadecimal(col_entries[i].get()) is True:
+            col = col_entries[i].get()
+        else:
+            col = False
+        if is_valid_unicode(sym_entries[i].get()) is True:
+            sym = sym_entries[i].get()
+        else:
+            sym = False
+        if not size_entries[i].get() is None:
+            try: 
+                size_ent = int(size_entries[i].get())
+            except:
+                size_ent = 10
+        else:
+            size_ent = 10
+        if not title_entries[i].get() == None:
+            tit_ent = title_entries[i].get()
+        else:
+            tit_ent = "No title"
+        if state.get() == "N/A":
+            size_ent = False
+            col = False
+            sym = False
+            tit_ent = False
+        up_plot_colors.append((state.get(), col))
+        up_plot_symbols.append((state.get(), sym))
+        up_plot_sizes.append((state.get(), size_ent))
+        up_plot_titles.append((state.get(), tit_ent))
+    
+    try:
+        linewidth_in_use = float(linewidth_enter.get())
+    except:
+        linewidth_in_use = 1
+    
+    orders_initial = ["first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "tenth"]
+    orders = []
+    for i in range(min(len(states), 10)):
+        orders.append(orders_initial[i])
+        
+    order_color_dic = {}
+    order_symbol_dic = {}
+    order_size_dic = {}
+    order_state_dic = {}
+    order_title_dic = {}
+    for i, order in enumerate(orders):
+        key, color = up_plot_colors[i]
+        if color is not False:
+            if not color.startswith("#"):
+                color = '#' + color
+        order_color_dic[order] = color
+        if key != "N/A":
+            order_state_dic[order] = key
+        else:
+            order_state_dic[order] = False
+        
+        key, symbol = up_plot_symbols[i]
+        if symbol is not False:
+            symbol = chr(int(symbol.lstrip('U+'), 16))
+        order_symbol_dic[order] = symbol
+        
+        key, size = up_plot_sizes[i]
+        order_size_dic[order] = size
+        
+        key, title = up_plot_titles[i]
+        order_title_dic[order] = title
+        
+        if color is False or symbol is False or size is False or title is False:
+            order_state_dic[order] = False
+        
+global current_peptide_index
+current_peptide_index = 0
+def create_example_plot():
+    global legend_size_entry, leg_pos, legend_linewidth_entry, line_legend_entries
+    try:
+        legend_size = float(legend_size_entry.get())
+    except:
+        legend_size = 10
+    try:
+        legend_linewidth = float(legend_linewidth_entry.get())
+    except:
+        legend_linewidth = 1
+        
+    global current_peptide_index, search_on
+    parse_data()
+    try: 
+        picture_widget.destroy()
+    except:
+        pass
+    
+    r_process_data()
+            
+    all_peptides = []      
+    for state in order_state_dic.values():
+        if state != False and state != "False":
+            for peptide in peplist[state]:
+                if peptide in all_peptides:
+                    continue
+                all_peptides.append(peptide)
+                
+    sorted_all_peptides = sorted(all_peptides, key=lambda p: (int(peptide_starts.get(p, [0])[0]), len(p)))
+    
+    if search_on is True:
+        pep_search_num = search_for_startvalue()
+        if not pep_search_num is False:
+            for pep in sorted_all_peptides:
+                if (peptide_starts[pep])[0] >= pep_search_num:
+                    current_peptide_index = sorted_all_peptides.index(pep)
+                    break
+    search_on = False
+        
+    if current_peptide_index < 0:
+        current_peptide_index = 0
+        
+    if current_peptide_index > (len(sorted_all_peptides) - 1):
+        current_peptide_index = len(sorted_all_peptides) - 1
+        
+    current_peptide = sorted_all_peptides[current_peptide_index]
+    
+    
+    length = len(current_peptide)
+    prolinecount=0
+    for letter in current_peptide:
+        if letter == 'P':
+            prolinecount = prolinecount+1
+    if current_peptide[0] == 'P':
+        max_theo = length-prolinecount
+    else:
+        max_theo = (length-1)-prolinecount
+    startvalues = peptide_starts.get(current_peptide, None)
+    startvalue= int(startvalues[0])
+    endvalues = peptide_ends.get(current_peptide, None)
+    endvalue = int(endvalues[0])
+    
+    fig = Figure()
+    ax = fig.add_subplot(111)
+
+    ax.set_ylabel(y_enter.get())
+    
+    
+    line_legend_entries = []
+    legend_entries = []
+    for state in statedic_of_pepdic_raw2:
+        up_list = []
+        tp_list = []
+        if correction is False:
+            ax.set_ylim(0, max_theo)
+            if current_peptide in statedic_of_pepdic_raw2[state]:
+                for up, tp in statedic_of_pepdic_raw2[state][current_peptide]:
+                    up_list.append(up)
+                    tp_list.append(tp)
+        if correction is True:
+            ax.set_ylim(0, (max_theo + 2))
+            if current_peptide in statedic_of_pepdic_cor[state]:
+                for up, tp in statedic_of_pepdic_cor[state][current_peptide]:
+                    up_list.append(up)
+                    tp_list.append(tp)
+                up_list = [z * max_theo for z in up_list]
+                
+        if tp_list != []:
+            max_timepoint = max(tp_list)
+            tick_values = [10**i for i in range(int(np.log10(max_timepoint)) + 1)]
+            ax.set_xticks(tick_values)
+    
+        if (correction is False and current_peptide in statedic_of_pepdic_raw2[state]) or (correction is True and current_peptide in statedic_of_pepdic_cor[state]):
+            if tp_list != []:
+                if show_last is True:
+                    pass
+                if show_last is False:
+                    up_list = up_list[0:-1]
+                    tp_list = tp_list[0:-1]
+
+                if tp_list[0] == 0:
+                    tp_list = tp_list[1:]
+                    up_list = up_list[1:]
+                
+                
+                filtered_pairs = [(up, tp) for up, tp in zip(up_list, tp_list) if up != -99999]
+                if filtered_pairs:
+                    up_list, tp_list = list(zip(*filtered_pairs))
+                    up_list = list(up_list)
+                    tp_list = list(tp_list)
+                else:
+                    continue
+                        
+
+                for order, st in order_state_dic.items():
+                    if st == state:
+                        ax.plot(tp_list, up_list, color=order_color_dic[order], linestyle='-', linewidth = linewidth_in_use, label=order_title_dic[order])
+                        line = Line2D([0], [0], color=order_color_dic[order], linestyle='-', linewidth=legend_linewidth, label=order_title_dic[order])
+                        line_legend_entries.append(line)
+                        for x, y in zip(tp_list, up_list):
+                            ax.text(x, y, order_symbol_dic[order], color=order_color_dic[order], ha='center', va='center', fontsize=order_size_dic[order])
+        
+            
+    ax.set_xlabel(x_enter.get())
+    ax.set_xscale('log')
+    if len(current_peptide) < 20:
+        ax.set_title(f'$^{{{startvalue}}} {current_peptide} ^{{{endvalue}}}$')
+    else:
+        new_title = current_peptide[:9] + "..." + current_peptide[-9:]
+        ax.set_title(f'$^{{{startvalue}}} {new_title} ^{{{endvalue}}}$')
+    fig.subplots_adjust(bottom=0.2)
+    if leg_ur or leg_ul or leg_bl or leg_br is True:
+        legend = ax.legend(handles=line_legend_entries, loc=leg_pos, prop={'size': legend_size})
+        
+    picture = FigureCanvasTkAgg(fig, master=window)
+    picture_widget = picture.get_tk_widget()
+    picture_widget.place(x=858, y=455, width=410, height = 370)
+    
+    save_uptakeplot_button = tk.Button(window, text="Save as PNG", command=lambda: save_figure(fig, startvalue, endvalue))
+    save_uptakeplot_button.place(x=850, y=830)
+    
+def save_figure(fig, startvalue, endvalue):
+    figure_title = f"{startvalue}-{endvalue}"
+    png_tit = filedialog.asksaveasfilename(initialfile=figure_title,
+                                            defaultextension=".png",
+                                            filetypes=[("PNG files", "*.png")])
+    if not png_tit:
+        tk.messagebox.showinfo("Save PNG", f"The PNG was not saved.")
+        return
+    else:
+        fig.savefig(png_tit)
+        tk.messagebox.showinfo("Save PDF", f"The PNG has been saved as '{png_tit}'.")
+    
 def check_button_clicks2():
     global states, peplist, startvallist, endvallist, state_options, data, protein_states
     states = {}
@@ -1257,7 +1858,7 @@ def check_button_clicks2():
     create_format_box()
 
     create_run_box()
-
+    
 
 
 
@@ -1282,7 +1883,11 @@ def check_button_clicks2():
     for state in states:
         if state not in state_options:
             state_options.append(state)
-
+            
+    if exp_bt_on_c is True:
+        make_maxdic_dropdowns()
+            
+    create_uptakeplot_box()
     dif_bt_done()
 
 
@@ -1391,13 +1996,11 @@ def exp_bt_on():
     exp_bt2.place(x=170, y=190)
     exp_bt_on_c = True
 
-    check_button_clicks2()
 
     global maxdic, dropdowns
     maxdic = {}  # Initialize an empty dictionary
     dropdowns = {}  # Initialize an empty dictionary to store dropdown variables
 
-    make_maxdic_dropdowns()
 
     exp_st_lb = tk.Label(window, text="State")
     exp_st_lb.place(x=35, y=223)
@@ -1415,6 +2018,8 @@ def exp_bt_on():
     y=247
     x2 = 347
     maxD_label_line = canvas.create_line(x1, y, x2, y)
+    
+    check_button_clicks2()
 
 
 
@@ -1423,7 +2028,6 @@ def theo_bt_on():
     theo_bt2 = tk.Button(window, text="Theoretical",bg="green",fg="white",command=lambda: [theo_bt_off(), exp_bt_on()])
     theo_bt2.place(x=50, y=190)
     theo_bt_on_c = True
-    check_button_clicks2()
     back_exchange_label = tk.Label(window, text="Back Exchange:")
     back_exchange_label.place(x=20, y=220)
     global be_entry
@@ -1432,6 +2036,7 @@ def theo_bt_on():
     be_entry.place(x=110, y=220)
     per_label = tk.Label(window, text="%")
     per_label.place(x=140, y=220)
+    check_button_clicks2()
 
 
 def exp_bt_off():
@@ -1481,19 +2086,6 @@ def update_dropdown_options(event):
     if twodif_state.get() != "":
         twodif_dropdown["values"] = state_options
 
-
-# s_entry1 = "dif1"
-# s_entry2 = "dif2"
-# s_entry3 = "dif3"
-# s_entry4 = "dif4"
-# s_entry5 = "dif5"
-# s_entry6 = "dif6"
-# s_entry7 = "dif7"
-# s_entry8 = "dif8"
-# s_entry9 = "dif9"
-# s_entry10 = "dif10"
-# s_entry11 = "dif11"
-# s_entry12 = "dif12"
 
 def dif_bt_done():
     minus_label = tk.Label(window, text="-")
@@ -1890,6 +2482,7 @@ def r_initialize():
     global comp_error_lab
     try:
         tit_bt.destroy()
+        pdf_bt.destroy()
     except:
         pass
     if comp_error_lab is not None:
@@ -1897,6 +2490,52 @@ def r_initialize():
     new_dic_of_dif_lists = {}
     check_dif_reqs()
 
+
+
+    p = r_extract_uptake_colors_from_JSON()
+    if p is False:
+        return
+    
+    p = r_extract_difference_colors_from_JSON()
+    if p is False:
+        return
+    
+    r_process_data()
+    
+    run_bt.config(state="disabled")
+    run_bt.config(relief="sunken", bg="white", fg="black")
+    
+    start_progress()
+
+    global wb
+    wb = openpyxl.Workbook()
+
+    r_make_legend1()
+    r_make_legend2()
+    if chic_bt_on == True:
+        r_chiclet()
+    if cdif_bt_on == True:
+        r_chicdif()
+    if pepmap_bt_on == True:
+        r_pepmaps()
+    if difmap_bt_on == True:
+        r_difmaps()
+    if condpeps_bt_on == True:
+        r_condpeps()
+    if difcond_bt_on == True:
+        r_difcond()
+    #r_heat_map()
+    #heat_map_bt_on = True
+    heat_map_bt_on = False
+    if uptake_plot_bt_on == True:
+        create_example_plot()
+        r_uptake_plots()
+        save_pdf()
+    if chic_bt_on or cdif_bt_on or pepmap_bt_on or difmap_bt_on or condpeps_bt_on or difcond_bt_on or heat_map_bt_on:
+        save_wb()
+
+
+def r_extract_uptake_colors_from_JSON():
     global uptake_color_length, uptake_val_1, uptake_col_1, uptake_val_2, uptake_col_2, uptake_val_3, uptake_col_3, uptake_val_4, uptake_col_4, uptake_val_5, uptake_col_5, uptake_val_6, uptake_col_6, uptake_val_7, uptake_col_7, uptake_val_8, uptake_col_8, uptake_val_9, uptake_col_9, uptake_eqz_key, uptake_abs_key, uptake_ltz_key, uptake_gtz_key, uptake_text_1, uptake_text_2, uptake_text_3, uptake_text_4, uptake_text_5, uptake_text_6, uptake_text_7, uptake_text_8, uptake_text_9, uptake_gtz_text, uptake_eqz_text, uptake_ltz_text, uptake_abs_text
     uptake_val_1 = 0
     uptake_val_2 = 0
@@ -1913,100 +2552,99 @@ def r_initialize():
         if json_data.get("header") == "Uptake Colors":
             uptake_color_dic = json_data.get("uptake_color_dic", {})
             uptake_text_dic = json_data.get("uptake_text_dic", {})
+            x = 1
+            for key, color in uptake_color_dic.items():
+                if key == "=0":
+                    uptake_eqz_key = color
+                    continue
+                if key == "-99999":
+                    uptake_abs_key = color
+                    continue
+                if key == ">0":
+                    uptake_gtz_key = color
+                    continue
+                if key == "<0":
+                    uptake_ltz_key = color
+                    continue
+                if x == 1:
+                    uptake_val_1 = float(key)
+                    uptake_col_1 = color
+                    uptake_color_length = 1
+                elif x == 2:
+                    uptake_val_2 = float(key)
+                    uptake_col_2 = color
+                    uptake_color_length = 2
+                elif x == 3:
+                    uptake_val_3 = float(key)
+                    uptake_col_3 = color
+                    uptake_color_length = 3
+                elif x == 4:
+                    uptake_val_4 = float(key)
+                    uptake_col_4 = color
+                    uptake_color_length = 4
+                elif x == 5:
+                    uptake_val_5 = float(key)
+                    uptake_col_5 = color
+                    uptake_color_length = 5
+                elif x == 6:
+                    uptake_val_6 = float(key)
+                    uptake_col_6 = color
+                    uptake_color_length = 6
+                elif x == 7:
+                    uptake_val_7 = float(key)
+                    uptake_col_7 = color
+                    uptake_color_length = 7
+                elif x == 8:
+                    uptake_val_8 = float(key)
+                    uptake_col_8 = color
+                    uptake_color_length = 8
+                elif x == 9:
+                    uptake_val_9 = float(key)
+                    uptake_col_9 = color
+                    uptake_color_length = 9
+                x += 1
+            for key, text in uptake_text_dic.items():
+                if key not in ["-99999", "=0", ">0", "<0"]:
+                    key = float(key)
+                if text == 1:
+                    text = 'FFFFFFFF'
+                if text == 0:
+                    text = 'FF000000'
+                if key == "=0":
+                    uptake_eqz_text = text
+                if key == "-99999":
+                    uptake_abs_text = text
+                if key == ">0":
+                    uptake_gtz_text = text
+                if key == "<0":
+                    uptake_ltz_text = text
+                if key == uptake_val_1:
+                    uptake_text_1 = text
+                if key == uptake_val_2:
+                    uptake_text_2 = text
+                if key == uptake_val_3:
+                    uptake_text_3 = text
+                if key == uptake_val_4:
+                    uptake_text_4 = text
+                if key == uptake_val_5:
+                    uptake_text_5 = text
+                if key == uptake_val_6:
+                    uptake_text_6 = text
+                if key == uptake_val_7:
+                    uptake_text_7 = text
+                if key == uptake_val_8:
+                    uptake_text_8 = text
+                if key == uptake_val_9:
+                    uptake_text_9 = text
+            return True
         else:
             comp_error_lab = tk.Label(window, text="Uptake color selection is not compatible")
-            comp_error_lab.place(x=1190, y=190)
+            comp_error_lab.place(x=1190, y=230)
             run_bt.config(state="normal")
             run_bt.config(relief="raised")
-            return
-        x = 1
-        for key, color in uptake_color_dic.items():
-            if key == "=0":
-                uptake_eqz_key = color
-                continue
-            if key == "-99999":
-                uptake_abs_key = color
-                continue
-            if key == ">0":
-                uptake_gtz_key = color
-                continue
-            if key == "<0":
-                uptake_ltz_key = color
-                continue
-            if x == 1:
-                uptake_val_1 = float(key)
-                uptake_col_1 = color
-                uptake_color_length = 1
-            elif x == 2:
-                uptake_val_2 = float(key)
-                uptake_col_2 = color
-                uptake_color_length = 2
-            elif x == 3:
-                uptake_val_3 = float(key)
-                uptake_col_3 = color
-                uptake_color_length = 3
-            elif x == 4:
-                uptake_val_4 = float(key)
-                uptake_col_4 = color
-                uptake_color_length = 4
-            elif x == 5:
-                uptake_val_5 = float(key)
-                uptake_col_5 = color
-                uptake_color_length = 5
-            elif x == 6:
-                uptake_val_6 = float(key)
-                uptake_col_6 = color
-                uptake_color_length = 6
-            elif x == 7:
-                uptake_val_7 = float(key)
-                uptake_col_7 = color
-                uptake_color_length = 7
-            elif x == 8:
-                uptake_val_8 = float(key)
-                uptake_col_8 = color
-                uptake_color_length = 8
-            elif x == 9:
-                uptake_val_9 = float(key)
-                uptake_col_9 = color
-                uptake_color_length = 9
-            x += 1
-
-        for key, text in uptake_text_dic.items():
-            try:
-                key = float(key)
-            except:
-                pass
-            if text == 1:
-                text = 'FFFFFFFF'
-            if text == 0:
-                text = 'FF000000'
-            if key == "=0":
-                uptake_eqz_text = text
-            if key == "-99999":
-                uptake_abs_text = text
-            if key == ">0":
-                uptake_gtz_text = text
-            if key == "<0":
-                uptake_ltz_text = text
-            if key == uptake_val_1:
-                uptake_text_1 = text
-            if key == uptake_val_2:
-                uptake_text_2 = text
-            if key == uptake_val_3:
-                uptake_text_3 = text
-            if key == uptake_val_4:
-                uptake_text_4 = text
-            if key == uptake_val_5:
-                uptake_text_5 = text
-            if key == uptake_val_6:
-                uptake_text_6 = text
-            if key == uptake_val_7:
-                uptake_text_7 = text
-            if key == uptake_val_8:
-                uptake_text_8 = text
-            if key == uptake_val_9:
-                uptake_text_9 = text
-
+            return False
+        
+def r_extract_difference_colors_from_JSON():
     global p_val_1, p_val_2, p_val_3, p_val_4, p_val_5, d_val_1, d_val_2, d_val_3, d_val_4, d_val_5, p_col_1, p_col_2, p_col_3, p_col_4, p_col_5, d_col_1, d_col_2, d_col_3, d_col_4, d_col_5, p_col_gtz, p_col_length, p_text_1, p_text_2, p_text_3, p_text_4, p_text_5, d_text_1, d_text_2, d_text_3, d_text_4, d_text_5, p_text_gtz, d_col_gtz, d_text_gtz, d_col_length, b_col_eqz, b_col_abs, b_text_eqz, b_text_abs
     p_val_1 = 0
     p_val_2 = 0
@@ -2029,131 +2667,130 @@ def r_initialize():
             dval_text_dic = json_data.get("deprotection_text_dic", {})
             bval_color_dic = json_data.get("both_color_dic", {})
             bval_text_dic = json_data.get("both_text_dic", {})
+            x = 1
+            for key, color in pval_color_dic.items():
+                if key == ">0":
+                    p_col_gtz = color
+                    continue
+                if x == 1:
+                    p_val_1 = float(key)
+                    p_col_1 = color
+                    p_col_length = 1
+                elif x == 2:
+                    p_val_2 = float(key)
+                    p_col_2 = color
+                    p_col_length = 2
+                elif x == 3:
+                    p_val_3 = float(key)
+                    p_col_3 = color
+                    p_col_length = 3
+                elif x == 4:
+                    p_val_4 = float(key)
+                    p_col_4 = color
+                    p_col_length = 4
+                elif x == 5:
+                    p_val_5 = float(key)
+                    p_col_5 = color
+                    p_col_length = 5
+                x += 1
+            for key, text in pval_text_dic.items():
+                try:
+                    key = float(key)
+                except:
+                    pass
+                if text == 1:
+                    text = 'FFFFFFFF'
+                if text == 0:
+                    text = 'FF000000'
+                if key == ">0":
+                    p_text_gtz = text
+                if key == p_val_1:
+                    p_text_1 = text
+                elif key == p_val_2:
+                    p_text_2 = text
+                elif key == p_val_3:
+                    p_text_3 = text
+                elif key == p_val_4:
+                    p_text_4 = text
+                elif key == p_val_5:
+                    p_text_5 = text
+
+            x = 1
+            for key, color in dval_color_dic.items():
+                if key == ">0":
+                    d_col_gtz = color
+                    continue
+                if x == 1:
+                    d_val_1 = float(key)
+                    d_col_1 = color
+                    d_col_length = 1
+                elif x == 2:
+                    d_val_2 = float(key)
+                    d_col_2 = color
+                    d_col_length = 2
+                elif x == 3:
+                    d_val_3 = float(key)
+                    d_col_3 = color
+                    d_col_length = 3
+                elif x == 4:
+                    d_val_4 = float(key)
+                    d_col_4 = color
+                    d_col_length = 4
+                elif x == 5:
+                    d_val_5 = float(key)
+                    d_col_5 = color
+                    d_col_length = 5
+                x += 1
+            for key, text in dval_text_dic.items():
+                try:
+                    key = float(key)
+                except:
+                    pass
+                if text == 1:
+                    text = 'FFFFFFFF'
+                if text == 0:
+                    text = 'FF000000'
+                if key == ">0":
+                    d_text_gtz = text
+                if key == d_val_1:
+                    d_text_1 = text
+                elif key == d_val_2:
+                    d_text_2 = text
+                elif key == d_val_3:
+                    d_text_3 = text
+                elif key == d_val_4:
+                    d_text_4 = text
+                elif key == d_val_5:
+                    d_text_5 = text
+
+            for key, color in bval_color_dic.items():
+                if key == "=0":
+                    b_col_eqz = color
+                if key == "-99999":
+                    b_col_abs = color
+            for key, text in bval_text_dic.items():
+                if text == 1:
+                    text = 'FFFFFFFF'
+                if text == 0:
+                    text = 'FF000000'
+                if key == "=0":
+                    b_text_eqz = text
+                if key == "-99999":
+                    b_text_abs = text
+            return True
         else:
             comp_error_lab = tk.Label(window, text="Difference color selection is not compatible")
-            comp_error_lab.place(x=1190, y=190)
+            comp_error_lab.place(x=1190, y=230)
             run_bt.config(state="normal")
             run_bt.config(relief="raised")
-            return
-        x = 1
-        for key, color in pval_color_dic.items():
-            if key == ">0":
-                p_col_gtz = color
-                continue
-            if x == 1:
-                p_val_1 = float(key)
-                p_col_1 = color
-                p_col_length = 1
-            elif x == 2:
-                p_val_2 = float(key)
-                p_col_2 = color
-                p_col_length = 2
-            elif x == 3:
-                p_val_3 = float(key)
-                p_col_3 = color
-                p_col_length = 3
-            elif x == 4:
-                p_val_4 = float(key)
-                p_col_4 = color
-                p_col_length = 4
-            elif x == 5:
-                p_val_5 = float(key)
-                p_col_5 = color
-                p_col_length = 5
-            x += 1
-        for key, text in pval_text_dic.items():
-            try:
-                key = float(key)
-            except:
-                pass
-            if text == 1:
-                text = 'FFFFFFFF'
-            if text == 0:
-                text = 'FF000000'
-            if key == ">0":
-                p_text_gtz = text
-            if key == p_val_1:
-                p_text_1 = text
-            elif key == p_val_2:
-                p_text_2 = text
-            elif key == p_val_3:
-                p_text_3 = text
-            elif key == p_val_4:
-                p_text_4 = text
-            elif key == p_val_5:
-                p_text_5 = text
-
-        x = 1
-        for key, color in dval_color_dic.items():
-            if key == ">0":
-                d_col_gtz = color
-                continue
-            if x == 1:
-                d_val_1 = float(key)
-                d_col_1 = color
-                d_col_length = 1
-            elif x == 2:
-                d_val_2 = float(key)
-                d_col_2 = color
-                d_col_length = 2
-            elif x == 3:
-                d_val_3 = float(key)
-                d_col_3 = color
-                d_col_length = 3
-            elif x == 4:
-                d_val_4 = float(key)
-                d_col_4 = color
-                d_col_length = 4
-            elif x == 5:
-                d_val_5 = float(key)
-                d_col_5 = color
-                d_col_length = 5
-            x += 1
-        for key, text in dval_text_dic.items():
-            try:
-                key = float(key)
-            except:
-                pass
-            if text == 1:
-                text = 'FFFFFFFF'
-            if text == 0:
-                text = 'FF000000'
-            if key == ">0":
-                d_text_gtz = text
-            if key == d_val_1:
-                d_text_1 = text
-            elif key == d_val_2:
-                d_text_2 = text
-            elif key == d_val_3:
-                d_text_3 = text
-            elif key == d_val_4:
-                d_text_4 = text
-            elif key == d_val_5:
-                d_text_5 = text
-
-        for key, color in bval_color_dic.items():
-            if key == "=0":
-                b_col_eqz = color
-            if key == "-99999":
-                b_col_abs = color
-        for key, text in bval_text_dic.items():
-            if text == 1:
-                text = 'FFFFFFFF'
-            if text == 0:
-                text = 'FF000000'
-            if key == "=0":
-                b_text_eqz = text
-            if key == "-99999":
-                b_text_abs = text
-
-
-
-
-
+            return False
+        
+                
+                
+                
+def r_process_data():  
     global statedic_of_pepdic_cor, new_dic_of_dif_list, s_timepoints
     statedic_of_pepdic_cor = {}
-    run_bt.config(state="disabled")
-    run_bt.config(relief="sunken", bg="white", fg="black")
     s_timepoints = {}
     for state in states:
         timepoints = list()
@@ -2683,8 +3320,6 @@ def r_initialize():
 
 
 
-    start_progress()
-
     global peptide_starts
     global peptide_ends
     peptide_starts = {}
@@ -2766,19 +3401,9 @@ def r_initialize():
 
     except:
         if (pepmap_bt_on or difmap_bt_on or condpeps_bt_on or difcond_bt_on) and skip_bt_clicked == False:
-
-            popup_window2 = tk.Toplevel(window)  # Create a new window for the popup menu
-            popup_window2.geometry("600x100")
-
-             # Calculate the desired position for the popup window
-            x = window.winfo_x() + 400  # Adjust the value as needed
-            y = window.winfo_y() + 200  # Adjust the value as needed
-
-            # Set the position of the popup window
-            popup_window2.geometry(f"+{x}+{y}")
-
-            noseq_lb = tk.Label(popup_window2, text="There has been an error reading your sequence. Please make sure the file is correctly formatted. Too many spaces in protein name will cause an error")
-            noseq_lb.place(x=50, y=50)
+            
+            tk.messagebox.showerror("Sequence Error", "There has been an error reading your sequence. Please make sure the file is correctly formatted. Too many spaces in protein name will cause an error")
+            
     if skip_bt_clicked == True:
         peptide_start_list = list()
         peptide_end_list = list()
@@ -2845,26 +3470,6 @@ def r_initialize():
 
 
 
-
-
-    global wb
-    wb = openpyxl.Workbook()
-
-    r_make_legend1()
-    r_make_legend2()
-    if chic_bt_on == True:
-        r_chiclet()
-    if cdif_bt_on == True:
-        r_chicdif()
-    if pepmap_bt_on == True:
-        r_pepmaps()
-    if difmap_bt_on == True:
-        r_difmaps()
-    if condpeps_bt_on == True:
-        r_condpeps()
-    if difcond_bt_on == True:
-        r_difcond()
-    save_wb()
 
 def r_make_legend1():
     ws = wb.create_sheet(title="Figure Legends")
@@ -3299,8 +3904,6 @@ def r_pepmaps():
 
 def r_difmaps():
 
-
-
     for stt, pair in  new_dic_of_dif_list.items():
         first = pair[0]
         second = pair[1]
@@ -3363,6 +3966,7 @@ def r_difmaps():
                                 diftake = -99999
                         except:
                             pass
+                
                     if diftake is not None:
                         for row in ws.iter_rows(min_row=startrow, max_row=startrow):
                             row[0].value = timepoint
@@ -4509,9 +5113,406 @@ def r_difcond():
             for cell in row:
                 cell.alignment = Alignment(horizontal='center')
 
+                
+def r_heat_map():
+    print("running heat map")
+    for stt, pair in  new_dic_of_dif_list.items():
+        first = pair[0]
+        second = pair[1]
+        sorted_peptides_first = sorted(peplist[first], key=lambda p: (int(peptide_starts.get(p, [0])[0]), len(p)))
+        sorted_peptides_second = sorted(peplist[second], key=lambda p: (int(peptide_starts.get(p, [0])[0]), len(p)))
+        difname = f"{stt}"
+        wtit = (f"{difname}_heat")[:30]
+        ws = wb.create_sheet(title=wtit)
+        ws.append([" "])
+        ws.append([" "] + seqlist_dic[first] + [" "])
+        timepoint_num = 0
+        for timepoint in s_timepoints[first]:
+            if timepoint in s_timepoints[second]:
+                timepoint_num += 1
+                difference_lists = {}
+                for peptide in sorted_peptides_first:
+                    if peptide in sorted_peptides_second:
+                        startvalues = peptide_starts.get(peptide, None)
+                        startvalue= int(startvalues[0]) - seq_start[first]
+                        endvalues = peptide_ends.get(peptide, None)
+                        endvalue = int(endvalues[0]) - seq_start[first]
+                        peptide_length = len(peptide)
+                        if exp_bt_on_c == True:
+                            up1 = None
+                            up2 = None
+                            diftake = None
+
+                            try:
+                                for up, tp in statedic_of_pepdic_cor[first][peptide]:
+                                    if tp == timepoint:
+                                        up1 = up
+                                for up, tp in statedic_of_pepdic_cor[second][peptide]:
+                                    if tp == timepoint:
+                                        up2 = up
+                                if up1 is not None and up2 is not None and up1 != -99999 and up2 != -99999:
+                                    diftake = up1 - up2
+                                elif up1 is not None and up2 is not None:
+                                    diftake = -99999
+
+                            except:
+                                pass
+
+                        if theo_bt_on_c == True:
+                            up1 = None
+                            up2 = None
+                            diftake = None
+                            try:
+                                for up, tp in statedic_of_pepdic_raw2[first][peptide]:
+                                    if tp == timepoint:
+                                        up1 = up
+                                for up, tp in statedic_of_pepdic_raw2[second][peptide]:
+                                    if tp == timepoint:
+                                        up2 = up
+                                if up1 is not None and up2 is not None and up1 != -99999 and up2 != -99999:
+                                    diftake = up1 - up2
+                                elif up1 is not None and up2 is not None:
+                                    diftake = -99999
+                            except:
+                                pass
+                        x = startvalue + 1
+                        if diftake is not None:
+                            while x <= endvalue:
+                                difference_key = f"difference_{x}"
+                                if not difference_key in difference_lists:
+                                    difference_lists[difference_key] = []
+                                difference_lists[difference_key].append((diftake, peptide_length))
+                                x += 1
+                                
+                for peptide in sorted_peptides_first:
+                    startvalues = peptide_starts.get(peptide, None)
+                    startvalue= int(startvalues[0]) - seq_start[first]
+                    protein_start = startvalue
+                    break
+                for peptide in sorted_peptides_first:
+                    endvalues = peptide_ends.get(peptide, None)
+                    endvalue = int(endvalues[0]) - seq_start[first]
+                    protein_end = endvalue
+                
+                
+                
+                def over_04_calc(x,a):
+                    over_04_count = 0
+                    for diftake in diftakes:
+                        if abs(diftake) >= 0.4:
+                            over_04_count += 1
+                    if over_04_count >= x-a:
+                        return True
+                    else:
+                        return "Inconclusive"
+                    
+                def under_03_calc(x,a):
+                    under_03_count = 0
+                    for diftake in diftakes:
+                        if abs(diftake) <= 0.3:
+                            under_03_count += 1
+                    if under_03_count >= x-a:
+                        return False
+                    else:
+                        return "Inconclusive"
+                
+                def color_box(significant, residue):
+                    for row in ws.iter_rows(min_row=((timepoint_num*2)+2), max_row=((timepoint_num*2)+2)):
+                        row[0].value = timepoint
+                        res = residue + 1 - seq_start[first]
+                        if significant is True:
+                            row[res].value = "T"
+                            row[res].number_format = ";;;"
+                            row[res].fill = PatternFill(start_color="C6C9FF", end_color="C6C9FF", fill_type='solid')
+                            row[res].border = Border(top=Side(border_style='thin', color='FF000000'),
+                                         bottom=Side(border_style='thin', color='FF000000'))
+                        if significant is False:
+                            row[res].value = "F"
+                            row[res].number_format = ";;;"
+                            row[res].fill = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type='solid')
+                            row[res].border = Border(top=Side(border_style='thin', color='FF000000'),
+                                         bottom=Side(border_style='thin', color='FF000000'))
+                        if significant == "No Coverage":
+                            row[res].value = "N"
+                            row[res].number_format = ";;;" 
+                        if significant == "Inconclusive":
+                            row[res].value = "I"
+                            row[res].number_format = ";;;"
+                            row[res].fill = PatternFill(start_color="FF0000", end_color="FF0000", fill_type='solid')
+                            row[res].border = Border(top=Side(border_style='thin', color='FF000000'),
+                                         bottom=Side(border_style='thin', color='FF000000'))
+                            
+            
+                residue_number = protein_start + seq_start[first]
+                while residue_number <= protein_end:
+                    significant = "Inconclusive"
+                    difference_key = f"difference_{residue_number}"
+                    difference_list = difference_lists.get(difference_key, [])  # Use get to handle the case where the key may not exist
+                    if difference_list == []:
+                        coverage = False
+                    else:
+                        coverage = True
+                    
+                    if coverage == False:
+                        color_box("No Coverage", residue_number)
+                        residue_number += 1
+                        continue
+                    
+                    peptide_lengths = []
+                    for diftake, peptide_length in difference_list:
+                        peptide_lengths.append(peptide_length)
+                        
+                    filtered_peptide_lengths = []
+                    for i, peptide_length in enumerate(peptide_lengths):
+                        if peptide_length >= (2 * min(peptide_lengths)):
+                            continue
+                        filtered_peptide_lengths.append((i, peptide_length))
+                        
+                    filtered_difference_list = []
+                    for i, tup in enumerate(difference_list):
+                        if (i, peptide_length) in filtered_peptide_lengths:
+                            filtered_difference_list.append(tup)
+                    
+                    diftakes = []
+                    for diftake, peptide_length in filtered_difference_list:
+                        diftakes.append(diftake)
+                    
+                    if all(abs(diftake) <= 0.3 for diftake in diftakes):
+                        significant = False
+                        color_box(significant, residue_number)
+                        residue_number += 1
+                        continue
+                    if len(diftakes) >= 6 and len(diftakes) < 12:
+                        significant = over_04_calc(6, 1)
+                        if significant is False:
+                            color_box(significant, residue_number)
+                            residue_number += 1
+                            continue
+                    if len(diftakes) >= 12 and len(diftakes) < 18:
+                        significant = over_04_calc(12, 2)
+                        if significant is False:
+                            color_box(significant, residue_number)
+                            residue_number += 1
+                            continue
+                    if len(diftakes) >= 18:
+                        significant = over_04_calc(18, 3)
+                        if significant is False:
+                            color_box(significant, residue_number)
+                            residue_number += 1
+                            continue
+                    
+                    diftake_over_05 = False
+                    for diftake in diftakes:
+                        if abs(diftake) >= 0.5:
+                            diftake_over_05 = True
+                    if diftake_over_05 == True:
+                        if all(abs(diftake) >= 0.4 for diftake in diftakes):
+                            significant = True
+                            color_box(significant, residue_number)
+                            residue_number += 1
+                            continue
+                        if len(diftakes) >= 6 and len(diftakes) < 12:
+                            significant = over_04_calc(6, 1)
+                            if significant is True:
+                                color_box(significant, residue_number)
+                                residue_number += 1
+                                continue
+                        if len(diftakes) >= 12 and len(diftakes) < 18:
+                            significant = over_04_calc(12, 2)
+                            if significant is True:
+                                color_box(significant, residue_number)
+                                residue_number += 1
+                                continue
+                        if len(diftakes) >= 18:
+                            significant = over_04_calc(18, 3)
+                            if significant is True:
+                                color_box(significant, residue_number)
+                                residue_number += 1
+                                continue
+                                
+                    
+                    color_box(significant, residue_number)                            
+                    
+                        
+                        
+                    residue_number += 1
+                white_fill = PatternFill(start_color="FFFFFFFF", end_color="FFFFFFFF", fill_type='solid')
+                for row in ws.rows:
+                    for cell in row:
+                        if cell.value is None:
+                            cell.fill = white_fill
+                for row in ws.iter_rows(min_row=1, max_row=1):
+                    num = seq_start[first]
+                    for cell in row:
+                        if cell.column >= 2 and cell.column < ws.max_column:
+                            cell.value = num
+                            num = num+1
+                for i, column in enumerate(ws.columns):
+                    if i == 0:
+                        continue
+                    ws.column_dimensions[column[0].column_letter].width = 4
+                    
+def r_uptake_plots():
+    global a_horizontal, a_vertical
+    last_filled_position = (0, 0)
+    title_fontsize = 8 
+    pdf_pages = PdfPages('uptake_plots.pdf')
+    if a_vertical is True:
+        fig, axes = plt.subplots(8, 6, figsize=(8.5, 11))
+    if a_horizontal is True:
+        fig, axes = plt.subplots(6, 8, figsize=(11, 8.5))
+    fig.text(0.5, 0.04, f"{x_enter.get()}", ha='center', va='center', fontsize=12)
+    fig.text(0.04, 0.5, f"{y_enter.get()}", ha='center', va='center', rotation='vertical', fontsize=12)
+    plt.subplots_adjust(wspace=0.4, hspace=0.6)
+    fig_idx = 0
+    page_count = 1
+    all_peptides = []
+    for state in order_state_dic.values():
+        if state != False and state != "False":
+            for peptide in peplist[state]:
+                if peptide in all_peptides:
+                    continue
+                all_peptides.append(peptide)
+            
+    sorted_all_peptides = sorted(all_peptides, key=lambda p: (int(peptide_starts.get(p, [0])[0]), len(p)))
+    for idx, peptide in enumerate(sorted_all_peptides):
+        if a_vertical is True:
+            row = idx % 48 // 6
+            col = idx % 48 % 6
+        if a_horizontal is True:
+            row = idx % 48 // 8
+            col = idx % 48 % 8
+        ax = axes[row, col]
+        
+        
+        length = len(peptide)
+        prolinecount=0
+        for letter in peptide:
+            if letter == 'P':
+                prolinecount = prolinecount+1
+        if peptide[0] == 'P':
+            max_theo = length-prolinecount
+        else:
+            max_theo = (length-1)-prolinecount
+        ax.set_xscale('log')
+        ax.yaxis.set_minor_locator(AutoMinorLocator(2))
+        startvalues = peptide_starts.get(peptide, None)
+        startvalue= int(startvalues[0])
+        endvalues = peptide_ends.get(peptide, None)
+        endvalue = int(endvalues[0])
+        if len(peptide) < 16:
+            ax.set_title(f'$^{{{startvalue}}} {peptide} ^{{{endvalue}}}$', fontsize=5)
+        else:
+            new_peptide_name = peptide[:3] + "..." + peptide[-3:]
+            ax.set_title(f'$^{{{startvalue}}} {new_peptide_name} ^{{{endvalue}}}$', fontsize=5)
+        
+        for state in statedic_of_pepdic_raw2:
+            up_list = []
+            tp_list = []
+            if correction is False:
+                ax.set_ylim(0, max_theo)
+                if peptide in statedic_of_pepdic_raw2[state]:
+                    for up, tp in statedic_of_pepdic_raw2[state][peptide]:
+                        up_list.append(up)
+                        tp_list.append(tp)
+                    
+            if correction is True:
+                ax.set_ylim(0, max_theo + 2)
+                if peptide in statedic_of_pepdic_cor[state]:
+                    for up, tp in statedic_of_pepdic_cor[state][peptide]:
+                        up_list.append(up)
+                        tp_list.append(tp)
+                    up_list = [z * max_theo for z in up_list]
+                
+            if tp_list != []:
+                if tp_list[0] == 0:
+                    tp_list = tp_list[1:]
+                    up_list = up_list[1:]
+                max_timepoint = max(tp_list)
+                tick_values = [10**i for i in range(int(np.log10(max_timepoint)) + 1)]
+                ax.set_xticks(tick_values)
+                
+            ax.tick_params(axis='x', labelsize=5)
+            ax.tick_params(axis='y', labelsize=5)
+            
+            if (correction is False and peptide in statedic_of_pepdic_raw2[state]) or (correction is True and peptide in statedic_of_pepdic_cor[state]):
+                if tp_list != []:
+                    if show_last is True:
+                        pass
+                    if show_last is False:
+                        up_list = up_list[0:-1]
+                        tp_list = tp_list[0:-1]
+                    
+                    filtered_pairs = [(up, tp) for up, tp in zip(up_list, tp_list) if up != -99999]
+                    if filtered_pairs:
+                        up_list, tp_list = list(zip(*filtered_pairs))
+                        up_list = list(up_list)
+                        tp_list = list(tp_list)
+                    else:
+                        continue
+                    
+                    for order, st in order_state_dic.items():
+                        if st == state:
+                            last_filled_position = (row, col)
+                            ax.plot(tp_list, up_list, color=order_color_dic[order], linestyle='-', linewidth = (linewidth_in_use/2))
+                            for x, y in zip(tp_list, up_list):
+                                ax.text(x, y, order_symbol_dic[order], color=order_color_dic[order], ha='center', va='center', fontsize=(order_size_dic[order]/3))
+    
+        if (idx + 1) % 48 == 0 and idx != 0:
+            pdf_pages.savefig(fig)
+            plt.close(fig)
+            if idx < len(sorted_all_peptides) - 1:
+                if a_vertical is True:
+                    fig, axes = plt.subplots(8, 6, figsize=(8.5, 11))
+                if a_horizontal is True:
+                    fig, axes = plt.subplots(6, 8, figsize=(11, 8.5))
+                fig.text(0.5, 0.04, f"{x_enter.get()}", ha='center', va='center', fontsize=12)
+                fig.text(0.04, 0.5, f"{y_enter.get()}", ha='center', va='center', rotation='vertical', fontsize=12)
+                plt.subplots_adjust(wspace=0.4, hspace=0.6)
+                page_count += 1
+    
+    if a_vertical is True:
+        max_row, max_col = 7, 5 
+    if a_horizontal is True:
+        max_row, max_col = 5, 7
+    
+    last_row, last_col = last_filled_position 
+    
+    for row in range(last_row, max_row + 1):  # +1 as range end is exclusive
+        for col in range(last_col + 1 if row == last_row else 0, max_col + 1):  # +1 as range end is exclusive
+            axes[row, col].axis('off')
+    
+    
+    if (idx + 1) % 48 != 0 or idx == len(sorted_all_peptides) - 1:
+        pdf_pages.savefig(fig)
+    plt.close(fig)
+    
+    fig_legend = plt.figure(figsize=(8.5, 11))
+    ax_legend = fig_legend.add_subplot(111)
+    ax_legend.legend(handles=line_legend_entries, loc='center', frameon=True)
+    ax_legend.axis('off')
+    pdf_pages.savefig(fig_legend)
+    plt.close(fig_legend)
+    
+    pdf_pages.close()
+    
+    increase_progress(2)
+
+        #cheese: corrected uptake do we need to adjust boundaries bc it can go over graph
+
+        
+
+                
+                
+            
+            
+            
+       
+                
 
 def save_wb():
     wb.remove(wb['Sheet'])
+    
     def get_user_title():
         wb_tit = filedialog.asksaveasfilename(filetypes=[("Excel Files", "*.xlsx")])
         if wb_tit:
@@ -4522,7 +5523,10 @@ def save_wb():
         else:
             tk.messagebox.showwarning("Save Workbook", "No file path selected. The workbook was not saved.")
 
-
+    
+                
+    
+    
     increase_progress(1)
 
 
@@ -4531,10 +5535,34 @@ def save_wb():
 
     global tit_bt
     tit_bt = tk.Button(window, text="Save Workbook", command=get_user_title)
-    tit_bt.place(x=1290, y=190)
+    tit_bt.place(x=1290, y=230)
+    
+
+def save_pdf():
+    increase_progress(1)
+    global pdf_bt
+    def get_pdf_title():
+        pdf_tit = filedialog.asksaveasfilename(defaultextension=".pdf",
+                                            filetypes=[("PDF files", "*.pdf")])
+        existing_file_path = "uptake_plots.pdf"
+        if pdf_tit:
+            if not pdf_tit.endswith(".pdf"):
+                pdf_tit += ".pdf"
+            shutil.copy(existing_file_path, pdf_tit)
+            tk.messagebox.showinfo("Save PDF", f"The PDF has been saved as '{pdf_tit}'.")
+        else:
+            tk.messagebox.showwarning("Save PDF", "No file path selected. The PDF was not saved.")
+    
+    global pdf_bt
+    pdf_bt = tk.Button(window, text="Save PDF", command=get_pdf_title)
+    pdf_bt.place(x=1305, y=260)
+    
+    run_bt.config(state="normal")
+    run_bt.config(relief="raised")
 
 
 
+    
 
 
 
