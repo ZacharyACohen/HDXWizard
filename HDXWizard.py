@@ -61,7 +61,7 @@ import json
 #print("Checking for Updates")
 #
 #
-version_number = "24.01.11"
+version_number = "24.01.18"
 #
 #try:
 #    program_needs_update = False
@@ -91,8 +91,8 @@ os.makedirs('RecentLegends', exist_ok=True)
 
 window = tk.Tk()
 window.geometry("1500x900")
-if os.name == 'nt':
-    window.state('zoomed')
+#if os.name == 'nt':
+#    window.state('zoomed')
 window.title("HDXWizard")
 canvas = tk.Canvas(window, width=1500, height=900)
 canvas.place(x=0, y=0)
@@ -735,9 +735,9 @@ def check_button_clicks():
         x2 = 370
         y2 = 880
         canvas.create_rectangle(x1, y1, x2, y2, outline="black", fill="")
-        
+        #chaaa 
         for widget in window.winfo_children():
-            if widget.winfo_x() > 370:
+            if widget.winfo_x() > 370 and widget != info_bt:
                 widget.destroy()
         for item in canvas.find_all():
             coords = canvas.coords(item)
@@ -6589,9 +6589,12 @@ def create_pictures(event=None):
     mapviewer.update()
     pdf_data_document.close()
     pdf_header_document.close()
-        
-    os.remove(temp_pdf_data_file_path)
-    os.remove(temp_pdf_header_file_path)
+    
+    try:
+        os.remove(temp_pdf_data_file_path)
+        os.remove(temp_pdf_header_file_path)
+    except:
+        print("Potential issues with excel. Make sure you are signed into excel")
     frame.update_idletasks()
     h_frame.update_idletasks()
     v_frame.update_idletasks()
