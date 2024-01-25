@@ -28,12 +28,15 @@ from PIL import Image, ImageTk
 import tensorflow as tf
 
 from Bio.PDB import PDBParser
+from Bio import PDB
 from Bio.SeqUtils import seq1
 from Bio import Align
+from Bio.PDB.PDBExceptions import PDBConstructionWarning
 
 
 #import webbrowser
 #import requests
+import warnings
 import shutil
 import re
 import os
@@ -89,10 +92,12 @@ os.makedirs('RecentLegends', exist_ok=True)
 
 
 
+
+
 window = tk.Tk()
 window.geometry("1500x900")
-#if os.name == 'nt':
-#    window.state('zoomed')
+if os.name == 'nt':
+    window.state('zoomed')
 window.title("HDXWizard")
 canvas = tk.Canvas(window, width=1500, height=900)
 canvas.place(x=0, y=0)
@@ -4017,6 +4022,7 @@ def r_process_data():
                         seqlist.append("A")
                         x += 1
                     seqlist_dic[state] = seqlist
+                    
 
 
     except:
@@ -6031,6 +6037,19 @@ def r_uptake_plots():
             
     sorted_all_peptides = sorted(all_peptides, key=lambda p: (int(peptide_starts.get(p, [0])[0]), len(p)))
     for idx, peptide in enumerate(sorted_all_peptides):
+        
+#        states_count = 0
+#        for state in order_state_dic.values():
+#            if correction is False and state is not False and peptide in statedic_of_pepdic_raw2[state]:
+#                states_count += 1
+#            if correction is True and state is not False and peptide in statedic_of_pepdic_cor[state]:
+#                states_count += 1
+#        
+#        print(states_count)
+#        # Skip plotting if the peptide has less than two states
+#        if states_count < 2:
+#            continue
+        
         if a_vertical is True:
             row = idx % 48 // 6
             col = idx % 48 % 6
@@ -6630,47 +6649,53 @@ def export_to_pymol(ws, timepoint_index, current_state):
         difpair = new_dic_of_dif_list[current_state]
         first_dif = difpair[0]
         current_protein = first_dif.split("~")[0]
-#    if current_protein in protein_pdb_dictionary.keys():
-#        pdb_file_path = protein_pdb_dictionary[current_protein]
-#    else:
-#        pdb_file_path = filedialog.askopenfilename(filetypes=[("PDB Files", "*.pdb")])
-#        protein_pdb_dictionary[current_protein] = pdb_file_path
     pdb_file_path = filedialog.askopenfilename(title="Select a PDB File", filetypes=[("PDB Files", "*.pdb")])
-    pdb_sequence, first_residue_number = extract_sequence_and_first_residue_from_pdb(pdb_file_path, 'A') 
-    
-    needs_new_sequence = False
-    if first_dif in seqlist_dic.keys():
-        list_of_your_sequence = seqlist_dic[first_dif]
-        unique_items = set(list_of_your_sequence)
-        if len(unique_items) == 1:
-            needs_new_sequence = True
-        your_sequence = ""
-        for item in list_of_your_sequence:
-            your_sequence += item
+    parser = PDB.PDBParser()
+    structure = parser.get_structure("PDB_structure", pdb_file_path)
+    chains = [chain.id for model in structure for chain in model]
+    print(chains)
+    chain_dic = {}
+    if len(chains) > 1:
+        for chain in chains:
+            chain_dic[chain] = False
+            user_choice = tk.messagebox.askyesno(f"Color Chain? {chains}", f"{chain}")
+            if user_choice:
+                chain_dic[chain] = True
+            else:
+                chain_dic[chain] = False
     else:
-        needs_new_sequence = True
-        
-    if needs_new_sequence is True:
+        for chain in chains:
+            chain_dic[chain] = True
+    print(chain_dic)
+    
+    compiled_new_commands = []
+    for chain_id, tf in chain_dic.items():
+        if tf is False:
+            continue
+        pdb_sequence, first_residue_number = extract_sequence_and_first_residue_from_pdb(pdb_file_path, chain_id) 
+
         your_sequence = generate_best_fit_sequence(current_protein)
 
-            
-        
-    alignments = align_sequences(pdb_sequence, your_sequence)[0]
-    print(alignments)
-    index_mapping = map_indices(alignments, first_residue_number)
 
 
-    color_commands = []
-    color_mapping2 = {}
-    for value, hex_color in color_mapping.items():
-        color_name = f"custom_color_{value}"
-        rgb_color = hex_to_rgb(hex_color)
-        color_command = f"set_color {color_name}, {rgb_color}"
-        color_commands.append(color_command)
-        color_mapping2[value] = color_name
+        alignments = align_sequences(pdb_sequence, your_sequence)[0]
+        print(alignments)
+        index_mapping = map_indices(alignments, first_residue_number)
 
-    commands = generate_pymol_commands(index_mapping, all_values, color_mapping2)
-    commands = [f"load {pdb_file_path}"] + color_commands + [f"color {color_mapping2[3]}, all"] + commands + ["hide (solvent)"]
+
+        color_commands = []
+        color_mapping2 = {}
+        for value, hex_color in color_mapping.items():
+            color_name = f"custom_color_{value}"
+            rgb_color = hex_to_rgb(hex_color)
+            color_command = f"set_color {color_name}, {rgb_color}"
+            color_commands.append(color_command)
+            color_mapping2[value] = color_name
+
+        new_commands = generate_pymol_commands(index_mapping, all_values, color_mapping2, chain_id)
+        compiled_new_commands += new_commands
+    
+    commands = [f"load {pdb_file_path}"] + color_commands + [f"color {color_mapping2[3]}, polymer.protein"] + compiled_new_commands + ["hide (solvent)"]
 
     with open("recent_color_mapping.pml", "w") as file:
         for command in commands:
@@ -6688,6 +6713,15 @@ def hex_to_rgb(hex_color):
     return tuple(int(hex_color[i:i + lv // 3], 16) / 255.0 for i in range(0, lv, lv // 3))
 
 protein_pdb_dictionary = {}
+
+def custom_warning_handler(message, category, filename, lineno, file=None, line=None):
+    if issubclass(category, PDBConstructionWarning):
+        print("ERROR: There is a gap in the .pdb file sequence. These residues cannot be colored")
+    else:
+        print(f"Standard Warning: {message}")
+warnings.showwarning = custom_warning_handler
+
+
 
 def extract_sequence_and_first_residue_from_pdb(pdb_file_path, chain_id):
     parser = PDBParser()
@@ -6721,31 +6755,40 @@ def map_indices(alignments, first_residue_number):
     target_alignment = alignments[0]
     q_alignment = alignments[1]
     
+    
     target_index = 0
     query_index = 0
     index_mapping = {}
-
-    for target_char, query_char in zip(target_alignment, q_alignment):
+    
+    both_started = False
+    for target_char, query_char in zip(target_alignment, q_alignment):        
         if target_char != '-':
             if query_char != '-':
+                both_started = True
                 # Both characters are not gaps
                 index_mapping[query_index] = target_index + first_residue_number
-                query_index += 1
+            query_index += 1
             target_index += 1
         elif query_char != '-':
             # Only target character is a gap
             query_index += 1
-
+            if both_started == True:
+                target_index += 1
+                
     return index_mapping
 
-def generate_pymol_commands(mapping, all_values, color_mapping2):
-    commands = []
+
+
+
+
+def generate_pymol_commands(mapping, all_values, color_mapping2, chain_id):
+    new_commands = []
     for index, value in enumerate(all_values):
         if index in mapping:
             pdb_index = mapping[index]
             color = color_mapping2[value]
-            commands.append(f"color {color}, resi {pdb_index}")
-    return commands
+            new_commands.append(f"color {color}, chain {chain_id} and resi {pdb_index}")
+    return new_commands
 
         
         
