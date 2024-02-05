@@ -64,7 +64,7 @@ import json
 #print("Checking for Updates")
 #
 #
-version_number = "24.01.18"
+version_number = "24.02.05"
 #
 #try:
 #    program_needs_update = False
@@ -726,6 +726,7 @@ info_bt.place(x=1300, y=500)
 
 
 def check_button_clicks():
+    global difmap_bt_on, pepmap_bt_on, chic_bt_on, cdif_bt_on, condpeps_bt_on, difcond_bt_on, uptake_plot_bt_on, heatmap_bt_on
     if (sdbt_clicked or cdbt_clicked) and (seqbt_txt_clicked or seqbt_fasta_clicked or skip_bt_clicked or txt_h_bt_clicked):
 
         msg1 = tk.Label(window, text="RFU Calculation and Correction")
@@ -740,7 +741,16 @@ def check_button_clicks():
         x2 = 370
         y2 = 880
         canvas.create_rectangle(x1, y1, x2, y2, outline="black", fill="")
-        #chaaa 
+        
+        difmap_bt_on = False
+        pepmap_bt_on = False
+        chic_bt_on = False
+        cdif_bt_on = False
+        condpeps_bt_on = False
+        difcond_bt_on = False
+        uptake_plot_bt_on = False
+        heatmap_bt_on = False
+        
         for widget in window.winfo_children():
             if widget.winfo_x() > 370 and widget != info_bt:
                 widget.destroy()
@@ -1614,7 +1624,7 @@ def create_run_box():
     
 
 def create_uptakeplot_box():
-    global correction, uptake_plot_colors, uptake_plot_symbols, show_last, state_selects, col_entries, sym_entries, size_entries, x_enter, y_enter, linewidth_enter, pep_search_enter, a_horizontal, a_vertical, title_entries, legend_size_entry, leg_ur, leg_ul, leg_bl, leg_br, leg_pos, legend_linewidth_entry, dot_chkval
+    global correction, uptake_plot_colors, uptake_plot_symbols, show_last, state_selects, col_entries, sym_entries, size_entries, x_enter, y_enter, linewidth_enter, pep_search_enter, a_horizontal, a_vertical, title_entries, legend_size_entry, leg_ur, leg_ul, leg_bl, leg_br, leg_pos, legend_linewidth_entry, dot_chkval, cplt_chkval
     x1, y1 = 372, 452
     x2, y2 = 1268, 880
     canvas.create_rectangle(x1, y1, x2, y2, outline="black", fill="")
@@ -1623,9 +1633,9 @@ def create_uptakeplot_box():
     y_enter = tk.Entry(window, width=15)
     y_enter.place(x=540, y=455)
     y_enter.insert(0, "Uptake (Da)")
-    tk.Label(window, text="X Axis:").place(x=640, y=455)
+    tk.Label(window, text="X Axis:").place(x=630, y=455)
     x_enter = tk.Entry(window, width=15)
-    x_enter.place(x=680, y=455)
+    x_enter.place(x=670, y=455)
     x_enter.insert(0, "Exposure (min)")
     Uncorrected_plot_bt = tk.Button(window, text="Uncorrected", bg="green", fg="white", command=lambda: [r_unc_bt_off(), r_c_bt_on()])
     Uncorrected_plot_bt.place(x=375, y=480)
@@ -1661,6 +1671,12 @@ def create_uptakeplot_box():
     a_vertical = False
     correction = False
     show_last = True
+    
+    complete_states_label = tk.Label(window, text="Complete States Only:")
+    complete_states_label.place(x=930, y=830)
+    cplt_chkval = tk.IntVar(value=0)
+    cplt_chk = tk.Checkbutton(window, text='', variable=cplt_chkval)
+    cplt_chk.place(x=1060, y=830)
     
     tk.Label(window, text="State").place(x=425, y=537)
     tk.Label(window, text="Hex Color").place(x=573, y=537)
@@ -3017,10 +3033,16 @@ def r_initialize():
 
     p = r_extract_uptake_colors_from_JSON()
     if p is False:
+        tk.messagebox.showerror("Color Error", "Could not extract uptake colors")
         return
     
     p = r_extract_difference_colors_from_JSON()
     if p is False:
+        tk.messagebox.showerror("Color Error", "Could not extract difference colors")
+        return
+    
+    if difmap_bt_on == False and pepmap_bt_on == False and chic_bt_on == False and cdif_bt_on == False and condpeps_bt_on == False and difcond_bt_on == False and uptake_plot_bt_on == False and heatmap_bt_on == False:
+        tk.messagebox.showerror("Run Error", "Please make sure you have selected what visualizations to produce and try again")
         return
     
     r_process_data()
@@ -5988,7 +6010,7 @@ def r_heat_map():
         iteration = X_complement[i]
         lm_X_data_dic[iteration].append(new_data_matrix)
     for statename, i_list in statename_dic.items():
-        ws_title = statename + " predicts"
+        ws_title = statename + "_predicts"
         ws_title = ws_title
         ws = wb.create_sheet(title = ws_title)
         
@@ -6036,19 +6058,15 @@ def r_uptake_plots():
                 all_peptides.append(peptide)
             
     sorted_all_peptides = sorted(all_peptides, key=lambda p: (int(peptide_starts.get(p, [0])[0]), len(p)))
-    for idx, peptide in enumerate(sorted_all_peptides):
-        
-#        states_count = 0
-#        for state in order_state_dic.values():
-#            if correction is False and state is not False and peptide in statedic_of_pepdic_raw2[state]:
-#                states_count += 1
-#            if correction is True and state is not False and peptide in statedic_of_pepdic_cor[state]:
-#                states_count += 1
-#        
-#        print(states_count)
-#        # Skip plotting if the peptide has less than two states
-#        if states_count < 2:
-#            continue
+    new_sorted_all_peptides = sorted_all_peptides       
+    
+    if cplt_chkval.get() == 1:
+        states_to_look_in = order_state_dic.values()
+        states_to_look_in = [x for x in states_to_look_in if x != False]
+        for state in states_to_look_in:
+            new_sorted_all_peptides = [x for x in new_sorted_all_peptides if x in peplist[state]]
+    
+    for idx, peptide in enumerate(new_sorted_all_peptides):
         
         if a_vertical is True:
             row = idx % 48 // 6
@@ -6164,7 +6182,7 @@ def r_uptake_plots():
         if (idx + 1) % 48 == 0 and idx != 0:
             pdf_pages.savefig(fig)
             plt.close(fig)
-            if idx < len(sorted_all_peptides) - 1:
+            if idx < len(new_sorted_all_peptides) - 1:
                 if a_vertical is True:
                     fig, axes = plt.subplots(8, 6, figsize=(8.5, 11))
                 if a_horizontal is True:
@@ -6186,7 +6204,7 @@ def r_uptake_plots():
             axes[row, col].axis('off')
     
     
-    if (idx + 1) % 48 != 0 or idx == len(sorted_all_peptides) - 1:
+    if (idx + 1) % 48 != 0 or idx == len(new_sorted_all_peptides) - 1:
         pdf_pages.savefig(fig)
     plt.close(fig)
     
@@ -6209,8 +6227,154 @@ def r_uptake_plots():
 def save_wb():
     global temp_file_path_excel2
     wb.remove(wb['Sheet'])
+
+    def r_make_pretty_linearmap():
+        for sheet_name in wb.sheetnames:
+            if sheet_name.endswith("_colprdc"):
+                sheet_to_remove = wb[sheet_name]
+                wb.remove(sheet_to_remove)
+        for sheet_name in wb.sheetnames:
+            if sheet_name.endswith("_predicts"):
+                source_sheet = wb[sheet_name]
+                target_sheet_title = sheet_name.removesuffix("_predicts") + "_colprdc"
+                target_sheet = wb.create_sheet(title=target_sheet_title)
+                target_sheet.append([])
+                for row in source_sheet.iter_rows():
+                    row_data = [cell.value for cell in row]
+                    row_data = [""] + row_data
+                    target_sheet.append(row_data)
+                    target_sheet.append([])
+                for row in target_sheet.iter_rows():
+                    if row[1].value is None:
+                        for cell in row:
+                            cell.border = Border()
+                            cell.fill = PatternFill(start_color="FFFFFFFF", end_color="FFFFFFFF", fill_type='solid')
+                        continue
+                    for i, cell in enumerate(row):
+                        if cell.value is None or cell.value == "":
+                            continue
+                        cell_v = cell.value
+                        if cell_v == 1:
+                            fill = PatternFill(start_color=f"{globals().get(f'p_col_{p_col_length}')}", end_color=f"{globals().get(f'p_col_{p_col_length}')}", fill_type='solid')
+                        if cell_v == 2:
+                            fill = PatternFill(start_color=f"{globals().get(f'p_col_{p_col_length-1}')}", end_color=f"{globals().get(f'p_col_{p_col_length-1}')}", fill_type='solid')
+                        if cell_v == 4:
+                            fill = PatternFill(start_color=f"{globals().get(f'd_col_{d_col_length}')}", end_color=f"{globals().get(f'd_col_{d_col_length}')}", fill_type='solid')
+                        if cell_v == 5:
+                            fill = PatternFill(start_color=f"{globals().get(f'd_col_{d_col_length-1}')}", end_color=f"{globals().get(f'd_col_{d_col_length-1}')}", fill_type='solid')
+                        if cell_v == 3:
+                            fill = PatternFill(start_color=b_col_abs, end_color=b_col_abs, fill_type='solid')
+                        if cell_v == 0:
+                            fill = PatternFill(start_color=d_col_gtz, end_color=d_col_gtz, fill_type='solid')
+                        cell.fill = fill
+                        
+                        if i == 0:
+                            pass
+                        
+                        elif i == 1:
+                            cell.border = Border(top=Side(border_style='thin', color='FF000000'),
+                                    bottom=Side(border_style='thin', color='FF000000'),
+                                    left=Side(border_style='thin', color='FF000000'))
+                        elif i == (len(row) - 1):
+                            cell.border = Border(top=Side(border_style='thin', color='FF000000'),
+                                    bottom=Side(border_style='thin', color='FF000000'),
+                                    right=Side(border_style='thin', color='FF000000'))
+                        else:
+                            cell.border = Border(top=Side(border_style='thin', color='FF000000'),
+                                    bottom=Side(border_style='thin', color='FF000000'))
+                        cell.number_format = ';;;'
+           
+        
+        #CHEESE: reset button parameters when turning adding something to the start deletes later things
+        target_sheet_title = "localized chiclets"
+        target_sheet = wb.create_sheet(title=target_sheet_title)
+        target_sheet.append([])
+        total_rows_used = 0
+        for sheet_name in wb.sheetnames:
+            if sheet_name.endswith("_predicts"):
+                source_sheet = wb[sheet_name]
+                last_row_index = source_sheet.max_column
+                
+                dif_sheet_to_search = sheet_name.removesuffix("_predicts") + "_dif" 
+                dif_sheet = wb[dif_sheet_to_search]
+                dif_timepoints = list()
+                for row in dif_sheet.iter_rows():
+                    if row[0].value != "Timepoint" and row[0].value != 0 and row[0].value != None and row[0].value != "none" and row[0].value != " ":
+                        dif_timepoints.append(row[0].value)
+                        
+                for row in dif_sheet.iter_rows(min_row=2, max_row=2):
+                    row_sequence = [cell.value for cell in row][1:]
+                for row in dif_sheet.iter_rows(min_row=1, max_row=1):
+                    row_numbers = [cell.value for cell in row][1:]
+
+
+                
+                        
+                for row_index, row in enumerate(source_sheet.iter_rows(values_only=True), start=1):
+                    for column_index, cell_value in enumerate(row, start=1):
+                        # Get the cell in the target sheet
+                        cell = target_sheet.cell(row=column_index + 1, column=row_index + 2 + total_rows_used)
+                        cell.value = cell_value
+
+                        # Color the cell based on its value
+                        if cell_value == 1:
+                            color = globals().get(f'p_col_{p_col_length}')
+                        elif cell_value == 2:
+                            color = globals().get(f'p_col_{p_col_length-1}')
+                        elif cell_value == 3:
+                            color = b_col_abs
+                        elif cell_value == 4:
+                            color = globals().get(f'd_col_{d_col_length}')
+                        elif cell_value == 5:
+                            color = globals().get(f'd_col_{d_col_length-1}')
+                        elif cell_value == 0:
+                            color = d_col_gtz
+                        
+                        fill = PatternFill(start_color=color, end_color=color, fill_type='solid')
+                        cell.fill = fill
+                        cell.number_format = ';;;'
+                        
+                        if column_index + 1 == 2:
+                            cell.border = Border(right=Side(border_style='thin', color='FF000000'),
+                                    left=Side(border_style='thin', color='FF000000'),
+                                    top=Side(border_style='thin', color='FF000000'))
+                        elif column_index == last_row_index:
+                            cell.border = Border(right=Side(border_style='thin', color='FF000000'),
+                                    left=Side(border_style='thin', color='FF000000'),
+                                    bottom=Side(border_style='thin', color='FF000000'))
+                        else:
+                            cell.border = Border(right=Side(border_style='thin', color='FF000000'),
+                                    left=Side(border_style='thin', color='FF000000'))
+                
+                for row in target_sheet.iter_rows(min_row=1, max_row=1):
+                    row[0 + total_rows_used].value = dif_sheet_to_search.removesuffix("_dif")
+                    for k, timepoint in enumerate(dif_timepoints, start=2):
+                        row[k + total_rows_used].value = timepoint
+                        
+                for i, res in enumerate(row_sequence):
+                    for row in target_sheet.iter_rows(min_row=i+2, max_row=i+2):
+                        row[1 + total_rows_used].value = res
+                target_sheet.column_dimensions[get_column_letter(2 + total_rows_used)].width = 3
+                for i, num in enumerate(row_numbers):
+                    for row in target_sheet.iter_rows(min_row=i+2, max_row=i+2):
+                        row[0 + total_rows_used].value = num
+                target_sheet.column_dimensions[get_column_letter(1 + total_rows_used)].width = 4.5
+                
+                total_rows_used += 3
+                total_rows_used += len(dif_timepoints)
+                
+
+                        
+                        
+
+                        
+                    
+                
+                    
     
     def get_user_title():
+        if heatmap_bt_on:
+            r_make_pretty_linearmap()
         for sheet_name in wb.sheetnames:
             sheet = wb[sheet_name]
             if sheet_name.endswith("_cond"):
@@ -6456,7 +6620,7 @@ def create_pictures(event=None):
     book.close()
     
     
-    ws = wb[current_state + " predicts"]
+    ws = wb[current_state + "_predicts"]
     timepoint_index = common_elements.index(timepoint)
     for row in ws.iter_rows(min_row=timepoint_index + 1, max_row=timepoint_index + 1, values_only=True):
         all_predicts = list(row)
@@ -6653,7 +6817,6 @@ def export_to_pymol(ws, timepoint_index, current_state):
     parser = PDB.PDBParser()
     structure = parser.get_structure("PDB_structure", pdb_file_path)
     chains = [chain.id for model in structure for chain in model]
-    print(chains)
     chain_dic = {}
     if len(chains) > 1:
         for chain in chains:
@@ -6666,7 +6829,6 @@ def export_to_pymol(ws, timepoint_index, current_state):
     else:
         for chain in chains:
             chain_dic[chain] = True
-    print(chain_dic)
     
     compiled_new_commands = []
     for chain_id, tf in chain_dic.items():
