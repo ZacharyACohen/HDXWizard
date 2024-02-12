@@ -64,7 +64,7 @@ import json
 #print("Checking for Updates")
 #
 #
-version_number = "24.02.12"
+version_number = "24.02.12.2"
 #
 #try:
 #    program_needs_update = False
@@ -2129,6 +2129,7 @@ def create_example_plot():
             max_timepoint = max(tp_list)
             tick_values = [10**i for i in range(int(np.log10(max_timepoint)) + 1)]
             ax.set_xticks(tick_values)
+
     
         if (correction is False and current_peptide in statedic_of_pepdic_raw2[state]) or (correction is True and current_peptide in statedic_of_pepdic_cor[state]):
             if tp_list != []:
@@ -2151,7 +2152,7 @@ def create_example_plot():
                 else:
                     continue
                         
-
+                        
                 for order, st in order_state_dic.items():
                     if st == state:
                         ax.plot(tp_list, up_list, color=order_color_dic[order], linestyle=linestyle_in_use, linewidth = linewidth_in_use, label=order_title_dic[order])
@@ -2159,6 +2160,12 @@ def create_example_plot():
                         line_legend_entries.append(line)
                         for x, y in zip(tp_list, up_list):
                             ax.text(x, y, order_symbol_dic[order], color=order_color_dic[order], ha='center', va='center', fontsize=order_size_dic[order])
+        else:
+            for order, st in order_state_dic.items():
+                if st == state:
+                    line = Line2D([0], [0], color=order_color_dic[order], linestyle='-', linewidth=legend_linewidth, label=order_title_dic[order])
+                    line_legend_entries.append(line)
+            
     
     if max_theo <= 7:
         step = 1
@@ -6065,6 +6072,10 @@ def r_uptake_plots():
         states_to_look_in = [x for x in states_to_look_in if x != False]
         for state in states_to_look_in:
             new_sorted_all_peptides = [x for x in new_sorted_all_peptides if x in peplist[state]]
+            
+    if len(new_sorted_all_peptides) == 0:
+        new_sorted_all_peptides = sorted_all_peptides    
+        print("No peptides contain all states. Command ignored")
     
     for idx, peptide in enumerate(new_sorted_all_peptides):
         
