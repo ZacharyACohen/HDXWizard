@@ -64,7 +64,7 @@ import json
 #print("Checking for Updates")
 #
 #
-version_number = "24.02.05"
+version_number = "24.02.12"
 #
 #try:
 #    program_needs_update = False
@@ -6285,7 +6285,6 @@ def save_wb():
                         cell.number_format = ';;;'
            
         
-        #CHEESE: reset button parameters when turning adding something to the start deletes later things
         target_sheet_title = "localized chiclets"
         target_sheet = wb.create_sheet(title=target_sheet_title)
         target_sheet.append([])
