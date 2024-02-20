@@ -5511,8 +5511,8 @@ def r_difcond():
 
 
                                     if sd_checkvar.get() == 0:
-                                        if len(peptide) == 6:
-                                            print(peptide)
+                                        #if len(peptide) == 6:
+                                            #print(peptide)
                                         if exp_bt_on_c:
                                             row[middle-1].value = round(diftake * 100, 2)
                                             row[middle-1].number_format = "0.00"
