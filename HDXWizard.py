@@ -64,7 +64,7 @@ import json
 #print("Checking for Updates")
 #
 #
-version_number = "24.02.12.2"
+version_number = "24.03.19"
 #
 #try:
 #    program_needs_update = False
@@ -5842,17 +5842,21 @@ def r_heat_map():
                 for k, row_cells in enumerate(sheet.iter_rows(min_row=i, max_row=(tp_starts[j+1][0] - 1) if j+1 < len(tp_starts) else None)):
                     ws.append([(cell.value) for cell in row_cells])
                 ws.delete_cols(1)
-                for i, col in enumerate(ws.iter_cols(values_only=True)):
+                for l, col in enumerate(ws.iter_cols(values_only=True)):
                     if col[0] is None:
                         continue
                     if all(cell is None or cell == -99999 for cell in col[1:]):
-                        ws.cell(row=1, column=i+1, value=0)
+                        ws.cell(row=1, column=l+1, value=0)
                     else:
-                        ws.cell(row=1, column=i+1, value=1)
+                        ws.cell(row=1, column=l+1, value=1)
                 for row in ws.iter_rows(min_row=2):
-                    for cell in row:
+                    for p, cell in enumerate(row):
                         if cell.value is not None:
-                            cell.value *= linear_map_multiplier
+                            try:
+                                cell.value = (cell.value * linear_map_multiplier)
+                            except:
+                                cell.value = (row[p+1].value * linear_map_multiplier)
+                                
                     
                 
 
