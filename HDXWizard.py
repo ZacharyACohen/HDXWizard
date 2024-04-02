@@ -58,6 +58,10 @@ import json
 #resturcture how plots are made to take less time
 #N-1/ N-2 / N-3 data for peptides
 
+#at the end go through chiclet difference and convert -99999 values to blanks
+#fix bug w/ different length sequences (see LCs)
+#Add multiple SDs at the same time, or at least see which have been added. maybe prevent duplicates?
+#fix uptake plots (and also all difference plots?) for when there is a point mutation on a peptide
 
 
 #print("Initializing Program")
