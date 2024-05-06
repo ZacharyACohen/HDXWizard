@@ -51,17 +51,8 @@ import json
 #wishlist
 #making mousewheel scrolling
 #different x scale when making all uptake plots (at least in gk)
-#option for crosshatches for missing peptides
-#use thomas's preferences for uptake plot colors/shapes
-#make linear map figures
-#save uptake plot configs
-#resturcture how plots are made to take less time
 #N-1/ N-2 / N-3 data for peptides
-
 #at the end go through chiclet difference and convert -99999 values to blanks
-#fix bug w/ different length sequences (see LCs)
-#Add multiple SDs at the same time, or at least see which have been added. maybe prevent duplicates?
-#fix uptake plots (and also all difference plots?) for when there is a point mutation on a peptide
 
 
 #print("Initializing Program")
@@ -117,45 +108,177 @@ txt_h_bt_clicked = False
 data = []
 seq = None
 
-
+courier_new_style = Font(name='Courier New')
 
 def open_sd_file_xlsx():
     global sdbt_clicked, data, cdbt_clicked, temp_file_path_excel
     sdbt_xlsx.config(state="disabled")
     sdbt_xlsx.config(relief="sunken", bg="white", fg="black")
-    sd_file_path = filedialog.askopenfilename(filetypes=[("Excel Files", "*.xlsx")])
-    if sd_file_path.endswith(".xlsx"):
-        workbook = openpyxl.Workbook()
-        worksheet = workbook.active
-        
+    sd_file_paths = filedialog.askopenfilenames(filetypes=[("Excel Files", "*.xlsx")])
+    if not sd_file_paths:
+        sdbt_xlsx.config(state="normal")
+        sdbt_xlsx.config(relief="raised", bg="orange", fg="black")
+    for sd_file_path in sd_file_paths:
+        if sd_file_path.endswith(".xlsx"):
+            workbook = openpyxl.Workbook()
+            worksheet = workbook.active
 
-        try:
-            source_workbook = openpyxl.load_workbook(sd_file_path)
-            source_worksheet = source_workbook.active
-            
-            
-            for row in source_worksheet.iter_rows(min_row=1, max_row=1):
-                if len(row) > 10:
-                    if row[10].value != "Center":
-                        user_choice = tk.messagebox.askyesno("Data Error", "Data Error: This file is not state data. Proceed Anyways?")
-                        if user_choice:
-                            pass
-                        else:
+
+            try:
+                source_workbook = openpyxl.load_workbook(sd_file_path)
+                source_worksheet = source_workbook.active
+
+                not_state_data = False
+                for row in source_worksheet.iter_rows(min_row=1, max_row=1):
+                    if len(row) > 10:
+                        if row[10].value != "Center":
+                            if len(sd_file_paths) == 1:
+                                tk.messagebox.showerror("State Data Error", "This File is not DynamX State Data. Please try again.")
+                            else:
+                                tk.messagebox.showerror("State Data Error", f"The File [{sd_file_path}] is not DynamX State Data. Please try again.")
                             sdbt_xlsx.config(state="normal")
                             sdbt_xlsx.config(relief="raised", bg="orange", fg="black")
-                            return
-                else:
-                    user_choice = tk.messagebox.askyesno("Data Error", "Data Error: This file is not state data. Proceed Anyways?")
-                    if user_choice:
-                        pass
+                            not_state_data = True
                     else:
+                        if len(sd_file_paths) == 1:
+                            tk.messagebox.showerror("State Data Error", "This File is not DynamX State Data. Please try again.")
+                        else:
+                            tk.messagebox.showerror("State Data Error", f"The File [{sd_file_path}] is not DynamX State Data. Please try again.")
                         sdbt_xlsx.config(state="normal")
                         sdbt_xlsx.config(relief="raised", bg="orange", fg="black")
-                        return
-            
-            for row in source_worksheet.iter_rows(values_only=True):
-                worksheet.append(row)
+                        not_state_data = True
 
+                if not_state_data == True:
+                    continue
+                for row in source_worksheet.iter_rows(values_only=True):
+                    worksheet.append(row)
+
+                for row in worksheet.iter_rows():
+                    cella = row[12]
+                    if cella.value == "NaN" or cella.value == "":
+                        cella.value = -99999
+                    cellb = row[8]  # Assuming column I is the 9th column (index 8)
+                    if cellb.value:
+                        cellb.value = cellb.value.replace("~", "_")
+                        cellb.value = cellb.value.replace("|", "_")
+                        cellb.value = cellb.value.replace(" ", "_")
+                    celle = row[0]
+                    if celle.value:
+                        celle.value = celle.value.replace("~", "_")
+                        celle.value = celle.value.replace("|", "_")
+                        celle.value = celle.value.replace(" ", "_")
+                    cellc = row[4]
+                    celld = row[5]
+                    cellc.value = None
+                    celld.value = None
+                    cellf = row[13]
+                    if cellf.value == "NaN" or cellf.value == "":
+                        cellf.value = -99999
+
+
+                temp_file_path_excel = tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False).name
+                workbook.save(temp_file_path_excel)
+                atexit.register(os.remove, temp_file_path_excel)
+
+                output_file_path = temp_file_path_excel.replace('.xlsx', '.txt')
+                atexit.register(os.remove, output_file_path)
+                with open(output_file_path, 'w', newline='') as file:
+                    writer = csv.writer(file, delimiter='\t')
+                    for row in worksheet.iter_rows():
+                        writer.writerow([cell.value for cell in row])
+
+
+
+                if output_file_path:
+                    with open(output_file_path, "r") as f:
+                        lines2 = f.readlines()
+                        lines = lines2[1:]
+                    if len(data) == 0:
+                        data = [line.strip().split() for line in lines]
+                    else:
+                        new_data = [line.strip().split() for line in lines]
+                        for line in new_data:
+                            data.append(line)
+                sdbt_xlsx_2 = tk.Button(window, text="sd.xlsx", bg="green", fg="white",  width=5, command=open_sd_file_xlsx)
+                sdbt_xlsx_2.place(x=170, y=30)
+                sdbt_clicked = True
+                cdbt_clicked = False
+            except PermissionError:
+                tk.messagebox.showerror("File Access Error", "Cannot access the file. Please ensure the file is not open in another program and try again.")
+                sdbt_xlsx_2 = tk.Button(window, text="sd.xlsx", bg="orange", fg="black",  width=5, command=open_sd_file_xlsx)
+                sdbt_xlsx_2.place(x=170, y=30)
+            except Exception as e:
+                tk.messagebox.showerror("Error", f"An unexpected error occurred: {str(e)}")
+                sdbt_xlsx_2 = tk.Button(window, text="sd.xlsx", bg="orange", fg="black",  width=5, command=open_sd_file_xlsx)
+                sdbt_xlsx_2.place(x=170, y=30)
+
+
+                cdbt_xlsx = tk.Button(window, text="cd.xlsx", bg="orange", fg="black",  width=5,  command=open_cd_file_xlsx)
+                cdbt_xlsx.place(x=270, y=30)
+                cdbt_csv = tk.Button(window, text="cd.csv", bg="orange", fg="black",  width=5,  command=open_cd_file_csv)
+                cdbt_csv.place(x=220, y=30)
+
+            check_button_clicks()
+        else:
+            sdbt_xlsx.config(state="normal")
+            sdbt_xlsx.config(relief="raised", bg="orange", fg="black")
+
+prot_seq_dic = {}
+def open_sd_file_csv():
+    global sdbt_clicked, data, cdbt_clicked, temp_file_path_excel, sdbt_csv_clicked
+    
+    sdbt_csv.config(state="disabled")
+    sdbt_csv.config(relief="sunken", bg="white", fg="black")
+    sd_file_paths = filedialog.askopenfilenames(filetypes=[("CSV Files", "*.csv")])
+    if not sd_file_paths:
+        if sdbt_csv_clicked == True:
+            sdbt_csv.config(state="normal")
+            sdbt_csv.config(relief="raised", bg="green", fg="white")
+        else:
+            sdbt_csv.config(state="normal")
+            sdbt_csv.config(relief="raised", bg="orange", fg="black")
+    for sd_file_path in sd_file_paths:
+        if sd_file_path.endswith(".csv"):
+            workbook = openpyxl.Workbook()
+            worksheet = workbook.active
+            with open(sd_file_path, 'r') as file:
+                reader = csv.reader(file, delimiter=',')
+                for row in reader:
+                    worksheet.append(row)
+            
+            not_state_data = False
+            for row in worksheet.iter_rows(min_row=1, max_row=1):
+                if len(row) > 10:
+                    if row[10].value != "Center":
+                        if len(sd_file_paths) == 1:
+                            tk.messagebox.showerror("State Data Error", "This File is not DynamX State Data. Please try again.")
+                        else:
+                            tk.messagebox.showerror("State Data Error", f"The File [{sd_file_path}] is not DynamX State Data. Please try again.")
+                        
+                        if sdbt_csv_clicked == True:
+                            sdbt_csv.config(state="normal")
+                            sdbt_csv.config(relief="raised", bg="green", fg="white")
+                        else:
+                            sdbt_csv.config(state="normal")
+                            sdbt_csv.config(relief="raised", bg="orange", fg="black")
+                        not_state_data = True
+                        
+                else:
+                    if len(sd_file_paths) == 1:
+                        tk.messagebox.showerror("State Data Error", "This File is not DynamX State Data. Please try again.")
+                    else:
+                        tk.messagebox.showerror("State Data Error", f"The File [{sd_file_path}] is not DynamX State Data. Please try again.")       
+                    if sdbt_csv_clicked == True:
+                        sdbt_csv.config(state="normal")
+                        sdbt_csv.config(relief="raised", bg="green", fg="white")
+                    else:
+                        sdbt_csv.config(state="normal")
+                        sdbt_csv.config(relief="raised", bg="orange", fg="black")
+                    not_state_data = True
+                    
+            if not_state_data == True:
+                continue
+            
             for row in worksheet.iter_rows():
                 cella = row[12]
                 if cella.value == "NaN" or cella.value == "":
@@ -178,7 +301,6 @@ def open_sd_file_xlsx():
                 if cellf.value == "NaN" or cellf.value == "":
                     cellf.value = -99999
 
-
             temp_file_path_excel = tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False).name
             workbook.save(temp_file_path_excel)
             atexit.register(os.remove, temp_file_path_excel)
@@ -196,156 +318,44 @@ def open_sd_file_xlsx():
                 with open(output_file_path, "r") as f:
                     lines2 = f.readlines()
                     lines = lines2[1:]
+
+
                 if len(data) == 0:
                     data = [line.strip().split() for line in lines]
                 else:
                     new_data = [line.strip().split() for line in lines]
                     for line in new_data:
                         data.append(line)
-            sdbt_xlsx_2 = tk.Button(window, text="sd.xlsx", bg="green", fg="white",  width=5, command=open_sd_file_xlsx)
-            sdbt_xlsx_2.place(x=170, y=30)
-            sdbt_clicked = True
-            cdbt_clicked = False
-        except PermissionError:
-            tk.messagebox.showerror("File Access Error", "Cannot access the file. Please ensure the file is not open in another program and try again.")
-            sdbt_xlsx_2 = tk.Button(window, text="sd.xlsx", bg="orange", fg="black",  width=5, command=open_sd_file_xlsx)
-            sdbt_xlsx_2.place(x=170, y=30)
-        except Exception as e:
-            tk.messagebox.showerror("Error", f"An unexpected error occurred: {str(e)}")
-            sdbt_xlsx_2 = tk.Button(window, text="sd.xlsx", bg="orange", fg="black",  width=5, command=open_sd_file_xlsx)
-            sdbt_xlsx_2.place(x=170, y=30)
-
-
-            cdbt_xlsx = tk.Button(window, text="cd.xlsx", bg="orange", fg="black",  width=5,  command=open_cd_file_xlsx)
-            cdbt_xlsx.place(x=270, y=30)
-            cdbt_csv = tk.Button(window, text="cd.csv", bg="orange", fg="black",  width=5,  command=open_cd_file_csv)
-            cdbt_csv.place(x=220, y=30)
-
-        check_button_clicks()
-    else:
-        sdbt_xlsx.config(state="normal")
-        sdbt_xlsx.config(relief="raised", bg="orange", fg="black")
-
-prot_seq_dic = {}
-def open_sd_file_csv():
-    global sdbt_clicked, data, cdbt_clicked, temp_file_path_excel, sdbt_csv_clicked
-    
-    sdbt_csv.config(state="disabled")
-    sdbt_csv.config(relief="sunken", bg="white", fg="black")
-    sd_file_path = filedialog.askopenfilename(filetypes=[("CSV Files", "*.csv")])
-    if sd_file_path.endswith(".csv"):
-        workbook = openpyxl.Workbook()
-        worksheet = workbook.active
-        with open(sd_file_path, 'r') as file:
-            reader = csv.reader(file, delimiter=',')
-            for row in reader:
-                worksheet.append(row)
-                
-                
-        for row in worksheet.iter_rows(min_row=1, max_row=1):
-            if len(row) > 10:
-                if row[10].value != "Center":
-                    user_choice = tk.messagebox.askyesno("Data Error", "Data Error: This file is not state data. Proceed Anyways?")
-                    if user_choice:
-                        pass
-                    else:
-                        if sdbt_csv_clicked == True:
-                            sdbt_csv.config(state="normal")
-                            sdbt_csv.config(relief="raised", bg="green", fg="white")
-                        else:
-                            sdbt_csv.config(state="normal")
-                            sdbt_csv.config(relief="raised", bg="orange", fg="black")
-                        return
-            else:
-                user_choice = tk.messagebox.askyesno("Data Error", "Data Error: This file is not state data. Proceed Anyways?")
-                if user_choice:
-                    pass
-                else:
-                    if sdbt_csv_clicked == True:
-                        sdbt_csv.config(state="normal")
-                        sdbt_csv.config(relief="raised", bg="green", fg="white")
-                    else:
-                        sdbt_csv.config(state="normal")
-                        sdbt_csv.config(relief="raised", bg="orange", fg="black")
-                    return
-
-        for row in worksheet.iter_rows():
-            cella = row[12]
-            if cella.value == "NaN" or cella.value == "":
-                cella.value = -99999
-            cellb = row[8]  # Assuming column I is the 9th column (index 8)
-            if cellb.value:
-                cellb.value = cellb.value.replace("~", "_")
-                cellb.value = cellb.value.replace("|", "_")
-                cellb.value = cellb.value.replace(" ", "_")
-            celle = row[0]
-            if celle.value:
-                celle.value = celle.value.replace("~", "_")
-                celle.value = celle.value.replace("|", "_")
-                celle.value = celle.value.replace(" ", "_")
-            cellc = row[4]
-            celld = row[5]
-            cellc.value = None
-            celld.value = None
-            cellf = row[13]
-            if cellf.value == "NaN" or cellf.value == "":
-                cellf.value = -99999
-
-        temp_file_path_excel = tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False).name
-        workbook.save(temp_file_path_excel)
-        atexit.register(os.remove, temp_file_path_excel)
-
-        output_file_path = temp_file_path_excel.replace('.xlsx', '.txt')
-        atexit.register(os.remove, output_file_path)
-        with open(output_file_path, 'w', newline='') as file:
-            writer = csv.writer(file, delimiter='\t')
-            for row in worksheet.iter_rows():
-                writer.writerow([cell.value for cell in row])
-
-
-
-        if output_file_path:
-            with open(output_file_path, "r") as f:
-                lines2 = f.readlines()
-                lines = lines2[1:]
-
-
-            if len(data) == 0:
-                data = [line.strip().split() for line in lines]
-            else:
-                new_data = [line.strip().split() for line in lines]
-                for line in new_data:
-                    data.append(line)
 
 
 
 
-#            sdbt_xlsx =tk.Button(window, text=".xlsx",bg="orange",fg="black", width=5, command=open_sd_file_xlsx)
-#            sdbt_xlsx.place(x=170,y=30)
-#            sdbt_xlsx_clicked = False
+    #            sdbt_xlsx =tk.Button(window, text=".xlsx",bg="orange",fg="black", width=5, command=open_sd_file_xlsx)
+    #            sdbt_xlsx.place(x=170,y=30)
+    #            sdbt_xlsx_clicked = False
 
 
-            sdbt_csv_2 = tk.Button(window, text="sd.csv", bg="green", fg="white",  width=5,  command=open_sd_file_csv)
-            sdbt_csv_2.place(x=120, y=30)
-            sdbt_csv_clicked = True
+                sdbt_csv_2 = tk.Button(window, text="sd.csv", bg="green", fg="white",  width=5,  command=open_sd_file_csv)
+                sdbt_csv_2.place(x=120, y=30)
+                sdbt_csv_clicked = True
 
 
-            sdbt_clicked = True
-            cdbt_clicked = False
-            
-            cdbt_xlsx = tk.Button(window, text="cd.xlsx", bg="orange", fg="black",  width=5,  command=open_cd_file_xlsx)
-            cdbt_xlsx.place(x=270, y=30)
-            cdbt_csv = tk.Button(window, text="cd.csv", bg="orange", fg="black",  width=5,  command=open_cd_file_csv)
-            cdbt_csv.place(x=220, y=30)
-            
-            check_button_clicks()
-    else:
-        if sdbt_csv_clicked == True:
-            sdbt_csv.config(state="normal")
-            sdbt_csv.config(relief="raised", bg="green", fg="white")
+                sdbt_clicked = True
+                cdbt_clicked = False
+
+                cdbt_xlsx = tk.Button(window, text="cd.xlsx", bg="orange", fg="black",  width=5,  command=open_cd_file_xlsx)
+                cdbt_xlsx.place(x=270, y=30)
+                cdbt_csv = tk.Button(window, text="cd.csv", bg="orange", fg="black",  width=5,  command=open_cd_file_csv)
+                cdbt_csv.place(x=220, y=30)
+
+                check_button_clicks()
         else:
-            sdbt_csv.config(state="normal")
-            sdbt_csv.config(relief="raised", bg="orange", fg="black")
+            if sdbt_csv_clicked == True:
+                sdbt_csv.config(state="normal")
+                sdbt_csv.config(relief="raised", bg="green", fg="white")
+            else:
+                sdbt_csv.config(state="normal")
+                sdbt_csv.config(relief="raised", bg="orange", fg="black")
 
 dfs = []
 cdbt_csv_clicked = False
@@ -522,10 +532,16 @@ def seq_txt_off():
 
 def open_sequence_fasta():
     global seqbt_fasta_clicked, fasta_file_path
-    seqbt_fasta_clicked = True
     fasta_file_path = filedialog.askopenfilename(filetypes=[("Fasta Files", "*.fasta")])
     if fasta_file_path:
         seq_headers = open(fasta_file_path, 'r')
+        for i, line in enumerate(seq_headers):
+            if i == 0:
+                if not line.startswith(">"):
+                    tk.messagebox.showerror("Sequence File Error", "Fasta file format is incorrect")
+                    return
+        seq_headers.seek(0)
+        seqbt_fasta_clicked = True
         for line in seq_headers:
             if line.startswith(">"):
                 new_line = line.lstrip(">")
@@ -553,11 +569,18 @@ def open_sequence_fasta_off():
 def txt_h_on():
     global txt_h_bt_clicked
     global prot_seq_dic
-    txt_h_bt_clicked = True
     txt_h_file_path = filedialog.askopenfilename(filetypes=[("Text Files", "*.txt")])
     if txt_h_file_path:
         seq_headers = open(txt_h_file_path, 'r')
-
+        
+        for i, line in enumerate(seq_headers):
+            if i == 0:
+                if not line.startswith(">"):
+                    tk.messagebox.showerror("Sequence File Error", "Fasta format is incorrect. Please insert .txt file in fasta format.")
+                    return
+        
+        seq_headers.seek(0)
+        txt_h_bt_clicked = True
         for line in seq_headers:
             if line.startswith(">"):
                 new_line = line.lstrip(">")
@@ -571,7 +594,6 @@ def txt_h_on():
                         if next_next_line is not None and next_next_line.strip() != "":
                             prot_seq_dic[protein_name] = next_next_line.strip()
             
-
         txt_h_bt = tk.Button(window, text=".txt (>)",bg="green",fg="white", width=5, command=lambda: [seq_txt_off(), skip_sequence_off(), open_sequence_fasta_off(), txt_h_on()])
         txt_h_bt.place(x=170, y=75)
 
@@ -673,7 +695,7 @@ seq_explain_lb2 = tk.Label(window, text="For .txt (p), add one file containing o
 seq_explain_lb2.place(x=15, y=120)
 
 info_bt = tk.Button(window, text="INFO", bg="grey", fg="black", command=open_info)
-info_bt.place(x=1300, y=500)
+info_bt.place(x=320, y=75)
 
 
 
@@ -1626,11 +1648,11 @@ def create_run_box():
     heatmap_bt = tk.Button(window, text="Linear Map", bg="orange", fg="black", width=17, command=lambda: (heatmap_on(), difcond_on(), difmap_on()))
     heatmap_bt.place(x=1340, y=160)
     
-
+    
 def create_uptakeplot_box():
     global correction, uptake_plot_colors, uptake_plot_symbols, show_last, state_selects, col_entries, sym_entries, size_entries, x_enter, y_enter, linewidth_enter, pep_search_enter, a_horizontal, a_vertical, title_entries, legend_size_entry, leg_ur, leg_ul, leg_bl, leg_br, leg_pos, legend_linewidth_entry, dot_chkval, cplt_chkval
     x1, y1 = 372, 452
-    x2, y2 = 1268, 880
+    x2, y2 = 1485, 880
     canvas.create_rectangle(x1, y1, x2, y2, outline="black", fill="")
     tk.Label(window, text="Format Uptake Plots").place(x=380, y=455)
     tk.Label(window, text="Y Axis:").place(x=500, y=455)
@@ -1652,7 +1674,7 @@ def create_uptakeplot_box():
     tk.Label(window, text="Linewidth:").place(x=375, y=510)
     linewidth_enter = tk.Entry(window, width=3)
     linewidth_enter.place(x=435, y=510)
-    linewidth_enter.insert(0, "1")
+    linewidth_enter.insert(0, "0.6")
     dashed_label = tk.Label(window, text="Dash")
     dashed_label.place(x=460, y=510)
     dot_chkval = tk.IntVar(value=0)
@@ -1676,11 +1698,11 @@ def create_uptakeplot_box():
     correction = False
     show_last = True
     
-    complete_states_label = tk.Label(window, text="Complete States Only:")
-    complete_states_label.place(x=930, y=830)
-    cplt_chkval = tk.IntVar(value=0)
-    cplt_chk = tk.Checkbutton(window, text='', variable=cplt_chkval)
-    cplt_chk.place(x=1060, y=830)
+#    complete_states_label = tk.Label(window, text="Complete States Only:")
+#    complete_states_label.place(x=1152, y=830)
+#    cplt_chkval = tk.IntVar(value=0)
+#    cplt_chk = tk.Checkbutton(window, text='', variable=cplt_chkval)
+#    cplt_chk.place(x=1282, y=830)
     
     tk.Label(window, text="State").place(x=425, y=537)
     tk.Label(window, text="Hex Color").place(x=573, y=537)
@@ -1688,38 +1710,83 @@ def create_uptakeplot_box():
     tk.Label(window, text="Size").place(x=738, y=537)
     tk.Label(window, text="Title").place(x=790, y=537)
     
-    uptake_plot_colors = ["1F77B4", "FF7F0E", "2CA02C", "D62728", "9467BD", "8C564B", "E377C2", "7F7F7F", "BCBD22", "17BECF"]
-    uptake_plot_symbols = ["U+2B24", "U+25A0", "U+25B2", "U+25C6", "U+25BC", "U+25CB", "U+25A1", "U+025C1", "U+025C7", "U+025AE"]
+    uptake_plot_colors = ["1F77B4", "FF7F0E", "2CA02C", "D62728", "9467BD", "8C564B", "E377C2", "7F7F7F", "BCBD22", "17BECF", "140003", "32CD32", "E47565", "C7703D", "D31C80", "800000"]
+    uptake_plot_symbols = ["U+2B24", "U+25A0", "U+25B2", "U+25C6", "U+25BC", "U+25CB", "U+25A1", "U+025C1", "U+025C7", "U+025AE", "U+025B1", "U+025B3", "U+025B0", "U+025C8", "U+025C9", "U+25A3"]
+    
+    
+    def on_change_sym(sv, identifier):
+        if is_valid_unicode(sv.get()) == True:
+            if "+" in sv.get():
+                new_symbol = sv.get().split("+")[1]
+            else:
+                sym_unicode_labels[identifier-1].config(text="")
+            try:
+                unicode_char = chr(int(new_symbol, 16))
+                sym_unicode_labels[identifier-1].config(text=unicode_char)
+            except:
+                sym_unicode_labels[identifier-1].config(text="")
+        else:
+            sym_unicode_labels[identifier-1].config(text="")
+            
+    def on_change_col(sv, identifier):
+        if is_valid_hexadecimal(sv.get()) == True:
+            sym_unicode_labels[identifier-1].config(foreground=f"#{sv.get()}")
+        else:
+            sym_unicode_labels[identifier-1].config(foreground=f"#F0F0F0")
+        
+        
     
     state_selects = []
     col_entries = []
     sym_entries = []
     size_entries = []
     title_entries = []
+    text_vars = []
+    text_vars_cols = []
+    sym_unicode_labels = []
+    
     x = 0
     states_o = list(states.keys())
     for state in states_o:
-        if x <= 9:
+        if x <= 15:
             x += 1
             state_var = tk.StringVar(value=state)
             na_var = tk.StringVar(value="N/A")
             state_select = ttk.Combobox(window, values=(states_o + ["N/A"]), width=28)
             state_select.place(x=375, y=(537 + (20*x)))
+        
+        
             if x <= 2:
                 state_select.set(state_var.get())
             else:
                 state_select.set(na_var.get())
             title_entry = tk.Entry(window, width=13)
             state_select.bind("<<ComboboxSelected>>", lambda event, title_entry=title_entry, state_select=state_select: on_state_selected(event, title_entry, state_select))
-            col_entry = tk.Entry(window, width=9)
+
+            text_var = tk.StringVar()
+            sym_unicode_label = tk.Label(window, text=text_var, foreground=f"#{uptake_plot_colors[x-1]}")
+            sym_unicode_label.place(x=710, y=(537 + (20*x)))
+            sym_unicode_labels.append(sym_unicode_label)
+            
+            text_var2 = tk.StringVar()
+            text_var2.trace_add("write", lambda name, index, mode, sv=text_var2, identifier=x: on_change_col(sv, identifier))
+            text_vars_cols.append(text_var2)
+            col_entry = tk.Entry(window, textvariable=text_var2, width=9)
             col_entry.place(x=580, y=(537 + (20*x)))
             col_entry.insert(0, uptake_plot_colors[x-1])
-            sym_entry = tk.Entry(window, width=9)
+            
+            
+            text_var.trace_add("write", lambda name, index, mode, sv=text_var, identifier=x: on_change_sym(sv, identifier))
+            text_vars.append(text_var)  # Store the StringVar to maintain scope
+            sym_entry = tk.Entry(window, textvariable=text_var, width=9)
             sym_entry.place(x=648, y=(537 + (20*x)))
             sym_entry.insert(0, uptake_plot_symbols[x-1])
+            
+            
+            
             size_entry = tk.Entry(window, width=3)
             size_entry.place(x=740, y=(537 + (20*x)))
-            size_entry.insert(0, "10")
+            size_entry.insert(0, "6")
             if x <= 2:
                 title_entry.insert(0, state.split("~")[1])
             title_entry.place(x=770, y=(537 + (20*x)))
@@ -1728,32 +1795,33 @@ def create_uptakeplot_box():
             sym_entries.append(sym_entry)
             size_entries.append(size_entry)
             title_entries.append(title_entry)
-    tk.Label(window, text="Legend Options").place(x=380, y=770)
-    x1 = 375
-    y = 795
-    x2 = 610
+            
+    tk.Label(window, text="Legend Options").place(x=910, y=455)
+    x1 = 870
+    y = 480
+    x2 = 1060
     canvas.create_line(x1, y, x2, y)
-    tk.Label(window, text="Legend Size:").place(x=550, y=810)
+    tk.Label(window, text="Legend Size:").place(x=870, y=485)
     legend_size_entry = tk.Entry(window, width = 6)
     legend_size_entry.insert(0, "10")
-    legend_size_entry.place(x=625, y=812)
-    tk.Label(window, text="Legend Linewidth:").place(x=550, y=840)
+    legend_size_entry.place(x=945, y=485)
+    tk.Label(window, text="Legend Linewidth:").place(x=870, y=515)
     legend_linewidth_entry = tk.Entry(window, width=6)
     legend_linewidth_entry.insert(0, "1")
-    legend_linewidth_entry.place(x=655, y=842)
+    legend_linewidth_entry.place(x=975, y=515)
     
     leg_ur = False
     leg_ul = False
     leg_bl = False
     leg_br = False
     ur_bt = tk.Button(window, text="Upper Right", bg="orange", fg="black", width = 10, command = lambda: [ur_bt_on(), ul_bt_off(), bl_bt_off(), br_bt_off()])
-    ur_bt.place(x=465, y=810)
+    ur_bt.place(x=955, y=545)
     ul_bt = tk.Button(window, text="Upper Left",  bg="orange", fg="black" ,width = 10, command = lambda: [ur_bt_off(), ul_bt_on(), bl_bt_off(), br_bt_off()])
-    ul_bt.place(x=380, y=810)
+    ul_bt.place(x=870, y=545)
     br_bt = tk.Button(window, text="Bottom Right", bg="orange", fg="black", width = 10, command = lambda: [ur_bt_off(), ul_bt_off(), bl_bt_off(), br_bt_on()])
-    br_bt.place(x=465, y=840)
+    br_bt.place(x=955, y=575)
     bl_bt = tk.Button(window, text="Bottom Left",  bg="orange", fg="black" ,width = 10, command = lambda: [ur_bt_off(), ul_bt_off(), bl_bt_on(), br_bt_off()])
-    bl_bt.place(x=380, y=840)
+    bl_bt.place(x=870, y=575)
     create_example_plot()
     
 def ur_bt_on():
@@ -1764,14 +1832,14 @@ def ur_bt_on():
     leg_br = False
     leg_pos = 'upper right'
     ur_bt = tk.Button(window, text="Upper Right", bg="green", fg="white", width = 10, command = ur_bt_off)
-    ur_bt.place(x=465, y=810)
+    ur_bt.place(x=955, y=545)
     create_example_plot()
     
 def ur_bt_off():
     global leg_ur
     leg_ur = False
     ur_bt = tk.Button(window, text="Upper Right", bg="orange", fg="black", width = 10, command = lambda: [ur_bt_on(), ul_bt_off(), bl_bt_off(), br_bt_off()])
-    ur_bt.place(x=465, y=810)
+    ur_bt.place(x=955, y=545)
     create_example_plot()
     
 def ul_bt_on():
@@ -1782,14 +1850,14 @@ def ul_bt_on():
     leg_br = False
     leg_pos = 'upper left'
     ul_bt = tk.Button(window, text="Upper Left",  bg="green", fg="white" ,width = 10, command = ul_bt_off)
-    ul_bt.place(x=380, y=810)
+    ul_bt.place(x=870, y=545)
     create_example_plot()
 
 def ul_bt_off():
     global leg_ul
     leg_ul = False
     ul_bt = tk.Button(window, text="Upper Left",  bg="orange", fg="black" ,width = 10, command = lambda: [ur_bt_off(), ul_bt_on(), bl_bt_off(), br_bt_off()])
-    ul_bt.place(x=380, y=810)
+    ul_bt.place(x=870, y=545)
     create_example_plot()
     
 def bl_bt_on():
@@ -1800,14 +1868,14 @@ def bl_bt_on():
     leg_br = False
     leg_pos = 'lower left'
     bl_bt = tk.Button(window, text="Bottom Left",  bg="green", fg="white" ,width = 10, command = bl_bt_off)
-    bl_bt.place(x=380, y=840)
+    bl_bt.place(x=870, y=575)
     create_example_plot()
     
 def bl_bt_off():
     global leg_bl
     leg_bl = False
     bl_bt = tk.Button(window, text="Bottom Left",  bg="orange", fg="black" ,width = 10, command = lambda: [ur_bt_off(), ul_bt_off(), bl_bt_on(), br_bt_off()])
-    bl_bt.place(x=380, y=840)
+    bl_bt.place(x=870, y=575)
     create_example_plot()
     
 def br_bt_on():
@@ -1818,14 +1886,14 @@ def br_bt_on():
     leg_br = True
     leg_pos = 'lower right'
     br_bt = tk.Button(window, text="Bottom Right", bg="green", fg="white", width = 10, command = br_bt_on)
-    br_bt.place(x=465, y=840)
+    br_bt.place(x=955, y=575)
     create_example_plot()
 
 def br_bt_off():
     global leg_br
     leg_br = False
     br_bt = tk.Button(window, text="Bottom Right", bg="orange", fg="black", width = 10, command = lambda: [ur_bt_off(), ul_bt_off(), bl_bt_off(), br_bt_on()])
-    br_bt.place(x=465, y=840)
+    br_bt.place(x=955, y=575)
     create_example_plot()
     
 
@@ -1940,6 +2008,17 @@ def search_for_startvalue():
         return pep_search_num
     except:
         return False
+    
+def search_for_protein():
+    current_protein_list = list()
+    for state in order_state_dic.values():
+        if state != False and state != "False":
+            protein = state.split("~")[0]
+            if protein not in current_protein_list:
+                current_protein_list.append(protein)
+    return current_protein_list
+            
+    
         
     
     
@@ -1996,9 +2075,9 @@ def parse_data():
     except:
         linewidth_in_use = 1
     
-    orders_initial = ["first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "tenth"]
+    orders_initial = ["first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "tenth", "eleventh", "twelfth", "thirteenth", "fourteenth", "fifteenth", "sixteenth"]
     orders = []
-    for i in range(min(len(states), 10)):
+    for i in range(min(len(states), 16)):
         orders.append(orders_initial[i])
         
     order_color_dic = {}
@@ -2034,6 +2113,41 @@ def parse_data():
 global current_peptide_index
 current_peptide_index = 0
 
+    
+class ProteinSelectDialog:
+    def __init__(self, parent, protein_list):
+        self.search_popup = tk.Toplevel(parent)
+        self.search_popup.title("Protein Select")
+        self.search_popup.geometry("300x100+600+400")
+        self.search_popup.transient(parent)  # Makes this window a transient window of 'parent'
+        self.search_popup.grab_set()  # Directs all events to this window until it is closed
+
+        self.selected_value = tk.StringVar()
+        self.dropdown = ttk.Combobox(self.search_popup, textvariable=self.selected_value, values=protein_list)
+        self.dropdown.pack(pady=20)
+
+        # Binding selection event to call on_protein_value_selected
+        self.dropdown.bind("<<ComboboxSelected>>", self.on_protein_value_selected)
+
+        # Wait for the window to close before continuing in the main program
+        parent.wait_window(self.search_popup)
+
+    def on_protein_value_selected(self, event):
+        # When a selection is made, close the popup
+        self.search_popup.destroy()
+
+    def get_selected_value(self):
+        # Return the selected value from the dropdown
+        return self.selected_value.get()
+    
+def get_protein_selection(window, protein_list):
+    if len(protein_list) > 1:
+        dialog = ProteinSelectDialog(window, protein_list)
+        return dialog.get_selected_value()
+    return protein_list[0]
+
+
+
 copy_statedic = {}
 def create_example_plot():
     global legend_size_entry, leg_pos, legend_linewidth_entry, line_legend_entries
@@ -2062,32 +2176,64 @@ def create_example_plot():
     if dot_chkval.get() == 1:
         linestyle_in_use = "--"
             
+    
+    
+    
     all_peptides = []      
     for state in order_state_dic.values():
         if state != False and state != "False":
+            protein = state.split("~")[0]
             for peptide in peplist[state]:
-                if peptide in all_peptides:
+                if (protein, peptide) in all_peptides:
                     continue
-                all_peptides.append(peptide)
+                all_peptides.append((protein, peptide))  
                 
-    sorted_all_peptides = sorted(all_peptides, key=lambda p: (int(peptide_starts.get(p, [0])[0]), len(p)))
+    
+    
+    
+    seg_proteins = True
+    if seg_proteins == False:             
+        sorted_all_peptides = sorted(all_peptides, key=lambda x: (int(pro_peptide_starts.get((x[0], x[1]), [0])[0]), len(x[1])))
+    if seg_proteins == True:
+        sorted_all_peptides = sorted(
+            all_peptides,
+            key=lambda x: (
+                x[0],  # Sort primarily by protein name
+                int(pro_peptide_starts.get((x[0], x[1]), [0])[0]),  # Secondary sort by start position
+                len(x[1])  # Tertiary sort by peptide length
+            )
+        )
+        
+    
+        
     
     if search_on is True:
         pep_search_num = search_for_startvalue()
+        protein_list = search_for_protein()
+        selected_protein = get_protein_selection(window, protein_list)
+        peptide_search_found = False
         if not pep_search_num is False:
-            for pep in sorted_all_peptides:
-                if (peptide_ends[pep])[0] >= pep_search_num:
-                    current_peptide_index = sorted_all_peptides.index(pep)
-                    break
+            for (protein, pep) in sorted_all_peptides:
+                if protein == selected_protein:
+                    if (pro_peptide_ends[(protein, pep)])[0] >= pep_search_num:
+                        peptide_search_found = True
+                        current_peptide_index = sorted_all_peptides.index((protein, pep))
+                        break
+            if peptide_search_found == False:
+                current_peptide_index = len(sorted_all_peptides) - 1
+                        
     search_on = False
-        
+    
+
     if current_peptide_index < 0:
         current_peptide_index = 0
         
     if current_peptide_index > (len(sorted_all_peptides) - 1):
         current_peptide_index = len(sorted_all_peptides) - 1
         
-    current_peptide = sorted_all_peptides[current_peptide_index]
+    
+    current_peptide = sorted_all_peptides[current_peptide_index][1]
+    current_protein = sorted_all_peptides[current_peptide_index][0]
     
     
     length = len(current_peptide)
@@ -2099,9 +2245,9 @@ def create_example_plot():
         max_theo = length-prolinecount
     else:
         max_theo = (length-1)-prolinecount
-    startvalues = peptide_starts.get(current_peptide, None)
+    startvalues = pro_peptide_starts.get((current_protein, current_peptide), None)
     startvalue= int(startvalues[0])
-    endvalues = peptide_ends.get(current_peptide, None)
+    endvalues = pro_peptide_ends.get((current_protein, current_peptide), None)
     endvalue = int(endvalues[0])
     
     fig = Figure()
@@ -2113,6 +2259,8 @@ def create_example_plot():
     line_legend_entries = []
     legend_entries = []
     for state in statedic_of_pepdic_raw2:
+        if not state.split("~")[0] == current_protein:
+                continue
         up_list = []
         tp_list = []
         if correction is False:
@@ -2169,6 +2317,15 @@ def create_example_plot():
                 if st == state:
                     line = Line2D([0], [0], color=order_color_dic[order], linestyle='-', linewidth=legend_linewidth, label=order_title_dic[order])
                     line_legend_entries.append(line)
+                    
+                 
+    for state in statedic_of_pepdic_raw2:
+        if state.split("~")[0] == current_protein:
+                continue
+        for order, st in order_state_dic.items():
+            if st == state:
+                line = Line2D([0], [0], color=order_color_dic[order], linestyle='-', linewidth=legend_linewidth, label=order_title_dic[order])
+                line_legend_entries.append(line)
             
     
     if max_theo <= 7:
@@ -2213,10 +2370,10 @@ def create_example_plot():
         
     picture = FigureCanvasTkAgg(fig, master=window)
     picture_widget = picture.get_tk_widget()
-    picture_widget.place(x=858, y=455, width=410, height = 370)
+    picture_widget.place(x=1065, y=455, width=420, height = 370)
     
     save_uptakeplot_button = tk.Button(window, text="Save as PNG", command=lambda: save_figure(fig, startvalue, endvalue))
-    save_uptakeplot_button.place(x=850, y=830)
+    save_uptakeplot_button.place(x=1072, y=830)
     
 def save_figure(fig, startvalue, endvalue):
     figure_title = f"{startvalue}-{endvalue}"
@@ -2270,8 +2427,9 @@ def check_button_clicks2():
             state = f"{line[0]}~{line[6]}"  # get the state from the 7th term
             peptide = line[3]  # get the peptide from the 1st term
             if protein not in protein_states:
-                protein_states[protein] = True
+                protein_states[protein] = []
             if state not in states:
+                protein_states[protein].append(state)
                 states[state] = True  # add state to dictionary
                 peplist[state] = list() #create a peptidelist for each state
                 startvallist[state] = list() #create a list of values for each state
@@ -2290,9 +2448,10 @@ def check_button_clicks2():
             for index, row in df.iterrows():
                 protein = row["Protein"]
                 if protein not in protein_states:
-                        protein_states[protein] = True
+                    protein_states[protein] = []
                 state = row["Protein"] + "~" + row["State"]
                 if state not in states:
+                    protein_states[protein].append(state)
                     states[state] = True
                     peplist[state] = list()
                     startvallist[state] = list()
@@ -2455,20 +2614,53 @@ def exp_bt_on():
 
 
 def theo_bt_on():
+    def on_change_be(sv):
+        try_worked = False
+        try:
+            float_be = float(sv.get())
+            try_worked = True
+        except:
+            pass
+        if try_worked == True:
+            if float_be == 0:
+                try:
+                    uptake_color_scheme_dropdown.set("uptake_uncor_default.json")
+                except:
+                    pass
+            else:
+                try:
+                    uptake_color_scheme_dropdown.set("uptake_cor_default.json")
+                except:
+                    pass
+        if try_worked == False:
+            try:
+                uptake_color_scheme_dropdown.set("uptake_uncor_default.json")
+            except:
+                pass
+
+        
     global theo_bt_on_c, be_entry, per_label, back_exchange_label, be_color_label
     theo_bt2 = tk.Button(window, text="Theoretical",bg="green",fg="white",command=lambda: [theo_bt_off(), exp_bt_on()])
     theo_bt2.place(x=50, y=190)
     theo_bt_on_c = True
-    back_exchange_label = tk.Label(window, text="Back Exchange:")
-    back_exchange_label.place(x=20, y=220)
+    back_exchange_label = tk.Label(window, text="Correct for Back Exchange:")
+    back_exchange_label.place(x=20, y=225)
     global be_entry
-    be_entry = tk.Entry(window, width=5)
+    
+    text_var_be = tk.StringVar()
+    text_var_be.trace_add("write", lambda name, index, mode, sv=text_var_be: on_change_be(sv))
+    be_entry = tk.Entry(window, textvariable=text_var_be, width=5)
     be_entry.insert(0, "0")
-    be_entry.place(x=110, y=220)
+    be_entry.place(x=170, y=225)
+    
+#    be_entry = tk.Entry(window, width=5)
+#    be_entry.insert(0, "0")
+#    be_entry.place(x=110, y=220)
+    
     per_label = tk.Label(window, text="%")
-    per_label.place(x=140, y=220)
-    be_color_label = tk.Label(window, text="If you are correcting for some amount of back exchange it is\nrecommended that you switch from\nuptake_uncor_default colors to uptake_cor_default colors")
-    be_color_label.place(x=20, y=250)
+    per_label.place(x=200, y=225)
+    #be_color_label = tk.Label(window, text="If you are correcting for some amount of back exchange it is\nrecommended that you switch from\nuptake_uncor_default colors to uptake_cor_default colors")
+    #be_color_label.place(x=20, y=250)
     check_button_clicks2()
 
 
@@ -3011,7 +3203,8 @@ def check_dif_reqs():
         if pair[0] == "" or pair[1] == "":
             continue
         pairlist.append(pair)
-        title_list.append(stt.replace("/", "_"))
+        new_stt = stt.replace("/", "_")
+        title_list.append(new_stt.replace(":", ";"))
     x=0
     for title in title_list:
         new_dic_of_dif_list[title[:20]] = pairlist[x]
@@ -3033,6 +3226,10 @@ def r_initialize():
         pass
     try:
         mapviewer_bt.destroy()
+    except:
+        pass
+    try:
+        be_label.config(text="                                                                 ")
     except:
         pass
     if comp_error_lab is not None:
@@ -3914,6 +4111,7 @@ def r_process_data():
 
 
     if theo_bt_on_c == True:
+        global back_exchange, be_label
         be = be_entry.get()
         try:
             back_exchange = float(be)
@@ -3961,138 +4159,206 @@ def r_process_data():
 
 
 
-    global peptide_starts
-    global peptide_ends
-    peptide_starts = {}
-    peptide_ends = {}
+    global pro_peptide_starts
+    global pro_peptide_ends
+    pro_peptide_starts = {}
+    pro_peptide_ends = {}
     
     if sdbt_clicked:
         # loop through each line in data
         for i, line in enumerate(data):
             peptide = line[3]  # get the peptide from the 1st term
+            protein = line[0]
             start_val = int(line[1])  # get the start value from the 2nd term
-            if peptide not in peptide_starts:
-                peptide_starts[peptide] = [start_val]  # create a new list with the start value
+            if (protein, peptide) not in pro_peptide_starts:
+                pro_peptide_starts[(protein, peptide)] = [start_val]  # create a new list with the start value
+
+
 
 
 
         # loop through each line in data
         for i, line in enumerate(data):
             peptide = line[3]  # get the peptide from the 1st term
+            protein = line[0]
             end_val = int(line[2])  # get the end value from the 2nd term
-            if peptide not in peptide_ends:
-                peptide_ends[peptide] = [end_val]  # create a new list with the end value
+            if (protein, peptide) not in pro_peptide_ends:
+                pro_peptide_ends[(protein, peptide)] = [end_val]  # create a new list with the end value
                 
     if cdbt_clicked:
         for peptide_instance in class_peptides:
-            if peptide_instance.Sequence not in peptide_starts:
-                peptide_starts[peptide_instance.Sequence] = [peptide_instance.Startvalue]
-            if peptide_instance.Sequence not in peptide_ends:
-                peptide_ends[peptide_instance.Sequence] = [peptide_instance.Endvalue]
+            if (peptide_instance.Protein, peptide_instance.Sequence) not in pro_peptide_starts:
+                pro_peptide_starts[(peptide_instance.Protein, peptide_instance.Sequence)] = [peptide_instance.Startvalue]
+            if (peptide_instance.Protein, peptide_instance.Sequence) not in pro_peptide_ends:
+                pro_peptide_ends[(peptide_instance.Protein, peptide_instance.Sequence)] = [peptide_instance.Endvalue]
 
-    try:
-        global seqlist_dic
-        beginnings = {}
-        seqlist_dic = {}
-        seqlist_dic_proteins = {}
 
-        if seqbt_txt_clicked == True:
-            seq.seek(0)
-            seqlist = list()
-            for line in seq:
-                line = line.rstrip()
-                for r in line:
-                    seqlist.append(r)
-            for state in states:
-                seqlist_dic[state] = seqlist
-            
+    
+    global seqlist_dic
+    beginnings = {}
+    seqlist_dic = {}
+    seqlist_dic_proteins = {}
+
+    if seqbt_txt_clicked == True:
+        seq.seek(0)
+        seqlist = list()
+        for line in seq:
+            line = line.rstrip()
+            for r in line:
+                seqlist.append(r)
+                
+        for state in states:
+            this_protein = state.split("~")[0]
             peptide_start_list = list()
             peptide_end_list = list()
-            for peptide, start in peptide_starts.items():
-                peptide_start_list.append(start)
+            for (pro, peptide), start in pro_peptide_starts.items():
+                if pro == this_protein:
+                    peptide_start_list.append(start)
             beginning_l = min(peptide_start_list)
-            for state in states:
-                beginnings[state] = beginning_l[0]
+            beginnings[state] = beginning_l[0]
+            for (pro, peptide), end in pro_peptide_ends.items():
+                if pro == this_protein:
+                    peptide_end_list.append(end)
+            ending_l = max(peptide_end_list)
+            ending = ending_l[0]
+            b_e_range = (ending - beginnings[state])
             
-        if seqbt_fasta_clicked or txt_h_bt_clicked:
-            if len(prot_seq_dic) == 1:
-                for protein, s in prot_seq_dic.items():
-                    seqlist = list()
-                    line = s.strip()
-                    for r in line:
-                        seqlist.append(r)
-                    for state in states:
-                        seqlist_dic[state] = seqlist
-            if len(prot_seq_dic) >= 2:
-                for protein, s in prot_seq_dic.items():
-                    seqlist = list()
-                    for line in s:
-                        line = line.strip()
-                        for r in line:
-                            seqlist.append(r)
-                    seqlist_dic_proteins[protein] = seqlist
-                seqlist_dic = {}
-                for protein, sequence in seqlist_dic_proteins.items():
-                    for state in states:
-                        if state.startswith(protein):
-                            seqlist_dic[state] = sequence
-            for state in states:
-                if state not in seqlist_dic:
-                    peptide_start_list = list()
-                    peptide_end_list = list()
-                    for peptide, start in peptide_starts.items():
-                        peptide_start_list.append(start)
-                    beginning_l = min(peptide_start_list)
-                    beginnings[state] = beginning_l[0]
-                    for peptide, end in peptide_ends.items():
-                        peptide_end_list.append(end)
-                    ending_l = max(peptide_end_list)
-                    ending = ending_l[0]
-                    b_e_range = (ending - beginnings[state]) + 3
-                    seqlist = list()
+            
+            pep_in_pro = False
+            for (pro, peptide), start in pro_peptide_starts.items():
+                if pro == this_protein:
+                    if peptide in ''.join(seqlist):
+                        pep_in_pro = True
+                        break
+            
+            if pep_in_pro == False:
+                seqlist_A = list()
+                x = 0
+                while x <= b_e_range:
+                    seqlist_A.append("A")
+                    x += 1
+                seqlist_dic[state] = seqlist_A 
+                
+            if pep_in_pro == True:
+                if len(seqlist) >= b_e_range:
+                    seqlist_dic[state] = seqlist
+
+                if len(seqlist) < b_e_range:
+                    seqlist_A = list()
                     x = 0
                     while x <= b_e_range:
-                        seqlist.append("A")
+                        seqlist_A.append("A")
                         x += 1
-                    seqlist_dic[state] = seqlist
+                    seqlist_dic[state] = seqlist_A 
+                
+            peptide_start_list = list()
+            peptide_end_list = list()
+            for (the_protein, peptide), start in pro_peptide_starts.items(): 
+                if the_protein == this_protein:
+                    peptide_start_list.append(start)
+            beginning_l = min(peptide_start_list)
+            beginnings[state] = beginning_l[0]
+            
+            
+
+
+    if seqbt_fasta_clicked or txt_h_bt_clicked:
+        for protein, s in prot_seq_dic.items():
+            seqlist = list()
+            for line in s:
+                line = line.strip()
+                for r in line:
+                    seqlist.append(r)
+            seqlist_dic_proteins[protein] = seqlist
+        seqlist_dic = {}
+        for protein, sequence in seqlist_dic_proteins.items():
+            for state in states:
+                this_protein = state.split("~")[0]
+                if state.startswith(protein):
+                    peptide_start_list = list()
+                    peptide_end_list = list()
+                    for (pro, peptide), start in pro_peptide_starts.items():
+                        if pro == this_protein:
+                            peptide_start_list.append(start)
+                    beginning_l = min(peptide_start_list)
+                    beginnings[state] = beginning_l[0]
+                    for (pro, peptide), end in pro_peptide_ends.items():
+                        if pro == this_protein:
+                            peptide_end_list.append(end)
+                    ending_l = max(peptide_end_list)
+                    ending = ending_l[0]
+                    b_e_range = ending - beginnings[state]
+
+                    if len(sequence) < b_e_range:
+                        continue
+
+                    seqlist_dic[state] = sequence
+
+        for state in states:
+            this_protein = state.split("~")[0]
+            if state not in seqlist_dic:
+                peptide_start_list = list()
+                peptide_end_list = list()
+                for (pro, peptide), start in pro_peptide_starts.items():
+                    if pro == this_protein:
+                        peptide_start_list.append(start)
+                beginning_l = min(peptide_start_list)
+                beginnings[state] = beginning_l[0]
+                for (pro, peptide), end in pro_peptide_ends.items():
+                    if pro == this_protein:
+                        peptide_end_list.append(end)
+                ending_l = max(peptide_end_list)
+                ending = ending_l[0]
+                b_e_range = ending - beginnings[state]
+                seqlist = list()
+                x = 0
+                while x <= b_e_range:
+                    seqlist.append("A")
+                    x += 1
+                seqlist_dic[state] = seqlist
                     
 
 
-    except:
-        if (pepmap_bt_on or difmap_bt_on or condpeps_bt_on or difcond_bt_on) and skip_bt_clicked == False:
-            
-            tk.messagebox.showerror("Sequence Error", "There has been an error reading your sequence. Please make sure the file is correctly formatted. Too many spaces in protein name will cause an error")
+
             
     if skip_bt_clicked == True:
-        peptide_start_list = list()
-        peptide_end_list = list()
-        for peptide, start in peptide_starts.items():
-            peptide_start_list.append(start)
-        beginning_l = min(peptide_start_list)
-        beginning = beginning_l[0]
-        for peptide, end in peptide_ends.items():
-            peptide_end_list.append(end)
-        ending_l = max(peptide_end_list)
-        ending = ending_l[0]
-        b_e_range = (ending - beginning) + 3
-        seqlist = list()
-        x = 0
-        while x <= b_e_range:
-            seqlist.append("A")
-            x += 1
         for state in states:
+            this_protein = state.split("~")[0]
+            peptide_start_list = list()
+            peptide_end_list = list()
+            for (pro, peptide), start in pro_peptide_starts.items():
+                if pro == this_protein:
+                    peptide_start_list.append(start)
+            beginning_l = min(peptide_start_list)
+            beginnings[state] = beginning_l[0]
+            for (pro, peptide), end in pro_peptide_ends.items():
+                if pro == this_protein:
+                    peptide_end_list.append(end)
+            ending_l = max(peptide_end_list)
+            ending = ending_l[0]
+            b_e_range = (ending - beginnings[state])
+            seqlist = list()
+            x = 0
+            while x <= b_e_range:
+                seqlist.append("A")
+                x += 1
             seqlist_dic[state] = seqlist
-
+            
+    #here we are labelling where in the sequence the protein starts
     global seq_start
     seq_start = {}
     if seqbt_txt_clicked == True:
-        sequence = ""
-        for res in seqlist:
-            sequence = sequence + res
         for state in states:
+            sequence = ""
+            for res in seqlist_dic[state]:
+                sequence = sequence + res
+            A_count = sequence.count("A")
+            if A_count == len(sequence):
+                seq_start[state] = beginnings[state]
+            protein = state.split("~")[0]
             for peptide in peplist[state]:
                 one_peptide_sequence = peptide
-                one_peptide_starts = peptide_starts.get(peptide, None)
+                one_peptide_starts = pro_peptide_starts.get((protein, peptide), None)
                 one_peptide_start = int(one_peptide_starts[0])
 
                 if one_peptide_sequence not in sequence:
@@ -4102,18 +4368,23 @@ def r_process_data():
                     before_space = split_sequence[0]
                     seq_start[state] = one_peptide_start - len(before_space)
                     break
+                    
+
+                    
+                    
 
     if skip_bt_clicked:
         for state in states:
-            seq_start[state] = beginning
+            seq_start[state] = beginnings[state]
     if seqbt_fasta_clicked or txt_h_bt_clicked:
         for state in states:
+            protein = state.split("~")[0]
             sequence = ""
             for res in seqlist_dic[state]:
                 sequence = sequence + res
             for peptide in peplist[state]:
                 one_peptide_sequence = peptide
-                one_peptide_starts = peptide_starts.get(peptide, None)
+                one_peptide_starts = pro_peptide_starts.get((protein, peptide), None)
                 one_peptide_start = int(one_peptide_starts[0])
 
                 if one_peptide_sequence not in sequence:
@@ -4125,7 +4396,10 @@ def r_process_data():
                     break
     for state in states:
         if state not in seq_start:
-            seq_start[state] = beginnings[state]
+            try:
+                seq_start[state] = beginnings[state]
+            except:
+                seq_start[state] = 0
 
 
 
@@ -4222,8 +4496,16 @@ def r_make_legend1():
     ax.set_yticks([])
     fig.savefig('./RecentLegends/uptakelegend.png', dpi=300)
     plt.close()
+    #chaaa
+    if back_exchange == 0:
+        ws.cell(row=1, column=8, value="Values are not corrected for Back Exchange")
+        ws.cell(row=1, column=8).font = Font(size=50)
+    else:
+        ws.cell(row=1, column=8, value=f"Values Corrected for {back_exchange}% Back Exchange")
+        ws.cell(row=1, column=8).font = Font(size=50)
+            
     img = openpyxl.drawing.image.Image('./RecentLegends/uptakelegend.png')
-    img.anchor = 'A1'
+    img.anchor = 'A7'
     ws.add_image(img)
 
 def r_make_legend2():
@@ -4358,7 +4640,7 @@ def r_make_legend2():
     plt.close()
     ws = wb['Figure Legends']
     img = openpyxl.drawing.image.Image('./RecentLegends/differencelegend.png')
-    img.anchor = 'A80'
+    img.anchor = 'A87'
     ws.add_image(img)
 
 
@@ -4377,7 +4659,10 @@ def r_pepmaps():
         states_to_look_in = [x for x in states_to_look_in if x != False]
         
     for state in states_to_look_in:
-        sorted_peptides = sorted(peplist[state], key=lambda p: (int(peptide_starts.get(p, [0])[0]), len(p)))
+        highest_row = 1
+        asterisk_in_state = False
+        protein = state.split("~")[0]
+        sorted_peptides = sorted(peplist[state], key=lambda x: (int(pro_peptide_starts.get((x[0], x[1]), [0])[0]), len(x[1])))
         ws_title = (f"{state}".replace(":", ";"))[-30:]
         ws = wb.create_sheet(title=ws_title)
         ws.append(["Timepoint"])
@@ -4391,9 +4676,9 @@ def r_pepmaps():
                 startrow = ws.max_row +5
                 endrow = ws.max_row + 250
             for peptide in sorted_peptides:
-                startvalues = peptide_starts.get(peptide, None)
+                startvalues = pro_peptide_starts.get((protein, peptide), None)
                 startvalue= int(startvalues[0]) - seq_start[state]
-                endvalues = peptide_ends.get(peptide, None)
+                endvalues = pro_peptide_ends.get((protein, peptide), None)
                 endvalue = int(endvalues[0]) - seq_start[state]
                 peptide_length = len(peptide)
                 Cuptake = None
@@ -4406,9 +4691,11 @@ def r_pepmaps():
                 if Cuptake is not None:
                     for row in ws.iter_rows(min_row=startrow, max_row=startrow):
                         row[0].value = timepoint
-                    for row in ws.iter_rows(min_row=startrow,max_row=endrow):
+                    for i, row in enumerate(ws.iter_rows(min_row=startrow,max_row=endrow), start=startrow):
                         cells = row[startvalue + 1:endvalue + 2]
                         if all(cell.value is None for cell in cells):
+                            if i > highest_row:
+                                highest_row = i
                             row[startvalue + 1].value = Cuptake
                             row[startvalue + 1].border = Border(top=Side(border_style='thin', color='FF000000'),
                                      bottom=Side(border_style='thin', color='FF000000'),
@@ -4426,48 +4713,49 @@ def r_pepmaps():
                                 if peptide in noD_dic_states[state]:
                                     if Cuptake != 0 and Cuptake != -99999:
                                         row[startvalue+1].value = "*"
+                                        asterisk_in_state = True
                                         #row[startvalue+1].alignment = Alignment(textRotation=90, vertical='center')
                                         if uptake_color_length >= 1 and Cuptake > uptake_val_1:
                                             fill = PatternFill(start_color=uptake_col_1, end_color=uptake_col_1, fill_type='solid')
-                                            font = Font(color=uptake_text_1, size=16)
+                                            font = Font(color=uptake_text_1, size=12)
                                         elif uptake_color_length >= 2 and Cuptake > uptake_val_2:
                                             fill = PatternFill(start_color=uptake_col_2, end_color=uptake_col_2, fill_type='solid')
-                                            font = Font(color=uptake_text_2, size=16)
+                                            font = Font(color=uptake_text_2, size=12)
                                         elif uptake_color_length >= 3 and Cuptake > uptake_val_3:
                                             fill = PatternFill(start_color=uptake_col_3, end_color=uptake_col_3, fill_type='solid')
-                                            font = Font(color=uptake_text_3, size=16)
+                                            font = Font(color=uptake_text_3, size=12)
                                         elif uptake_color_length >= 4 and Cuptake > uptake_val_4:
                                             fill = PatternFill(start_color=uptake_col_4, end_color=uptake_col_4, fill_type='solid')
-                                            font = Font(color=uptake_text_4, size=16)
+                                            font = Font(color=uptake_text_4, size=12)
                                         elif uptake_color_length >= 5 and Cuptake > uptake_val_5:
                                             fill = PatternFill(start_color=uptake_col_5, end_color=uptake_col_5, fill_type='solid')
-                                            font = Font(color=uptake_text_5, size=16)
+                                            font = Font(color=uptake_text_5, size=12)
                                         elif uptake_color_length >= 6 and Cuptake > uptake_val_6:
                                             fill = PatternFill(start_color=uptake_col_6, end_color=uptake_col_6, fill_type='solid')
-                                            font = Font(color=uptake_text_6, size=16)
+                                            font = Font(color=uptake_text_6, size=12)
                                         elif uptake_color_length >= 7 and Cuptake > uptake_val_7:
                                             fill = PatternFill(start_color=uptake_col_7, end_color=uptake_col_7, fill_type='solid')
-                                            font = Font(color=uptake_text_7, size=16)
+                                            font = Font(color=uptake_text_7, size=12)
                                         elif uptake_color_length >= 8 and Cuptake > uptake_val_8:
                                             fill = PatternFill(start_color=uptake_col_8, end_color=uptake_col_8, fill_type='solid')
-                                            font = Font(color=uptake_text_8, size=16)
+                                            font = Font(color=uptake_text_8, size=12)
                                         elif uptake_color_length >= 9 and Cuptake > uptake_val_9:
                                             fill = PatternFill(start_color=uptake_col_9, end_color=uptake_col_9, fill_type='solid')
-                                            font = Font(color=uptake_text_9, size=16)
+                                            font = Font(color=uptake_text_9, size=12)
                                         elif Cuptake > 0.0:
                                             fill = PatternFill(start_color=uptake_gtz_key, end_color=uptake_gtz_key, fill_type='solid')
-                                            font = Font(color=uptake_gtz_text, size=16)
+                                            font = Font(color=uptake_gtz_text, size=12)
                                         elif Cuptake == 0:
                                             fill = PatternFill(start_color=uptake_eqz_key, end_color=uptake_eqz_key, fill_type='solid')
-                                            font = Font(color=uptake_eqz_text, size=16)
+                                            font = Font(color=uptake_eqz_text, size=12)
                                             cell.number_format = ';;;'
                                         elif Cuptake == -99999:
                                             fill = PatternFill(start_color=uptake_abs_key, end_color=uptake_abs_key, fill_type='solid')
-                                            font = Font(color=uptake_abs_text, size=16)
+                                            font = Font(color=uptake_abs_text, size=12)
                                             cell.number_format = ';;;'
                                         elif Cuptake < 0.0:
                                             fill = PatternFill(start_color=uptake_ltz_key, end_color=uptake_ltz_key, fill_type='solid')
-                                            font = Font(color=uptake_ltz_text, size=16)
+                                            font = Font(color=uptake_ltz_text, size=12)
                                         row[startvalue+1].fill = fill
                                         row[startvalue+1].font = font
                             except:
@@ -4487,10 +4775,16 @@ def r_pepmaps():
 
             timepoint_number = timepoint_number + 1
 
-
-
-
-
+        
+        for row in ws.iter_rows(min_row=2, max_row=2):
+            for cell in row:
+                cell.font = courier_new_style
+                
+        if asterisk_in_state == True:
+            for row in ws.iter_rows(min_row=highest_row+2, max_row=highest_row+2):
+                row[1].value = "* = no maxD for peptide, average back exchange used"
+            
+        
         white_fill = PatternFill(start_color="FFFFFFFF", end_color="FFFFFFFF", fill_type='solid')
         for row in ws.rows:
             for cell in row:
@@ -4503,13 +4797,16 @@ def r_pepmaps():
             if i == 0:
                 continue
             ws.column_dimensions[column[0].column_letter].width = full_pep_width_enter.get()
+            
+        for row in ws.rows:
+            ws.row_dimensions[row[0].row].height = 14.4
 
 
 
         for row in ws.iter_rows(min_row=3):
             for cell in row[1:]:
                 cell_v = cell.value
-                if cell_v != "*":
+                if cell_v != "*" and cell_v != "* = no maxD for peptide, average back exchange used":
                     if uptake_color_length >= 1 and cell_v is not None and cell_v > uptake_val_1:
                         fill = PatternFill(start_color=uptake_col_1, end_color=uptake_col_1, fill_type='solid')
                         cell.number_format = ';;;'
@@ -4572,10 +4869,14 @@ def r_difmaps():
     difference_titles = []
     difference_states = []
     for stt, pair in  new_dic_of_dif_list.items():
+        highest_row = 1
+        asterisk_in_state = False
         first = pair[0]
         second = pair[1]
-        sorted_peptides_first = sorted(peplist[first], key=lambda p: (int(peptide_starts.get(p, [0])[0]), len(p)))
-        sorted_peptides_second = sorted(peplist[second], key=lambda p: (int(peptide_starts.get(p, [0])[0]), len(p)))
+        protein_one = first.split("~")[0]
+        protein_two = second.split("~")[0]
+        sorted_peptides_first = sorted(peplist[first], key=lambda x: (int(pro_peptide_starts.get((x[0], x[1]), [0])[0]), len(x[1])))
+        sorted_peptides_second = sorted(peplist[second], key=lambda x: (int(pro_peptide_starts.get((x[0], x[1]), [0])[0]), len(x[1])))
         difname = f"{stt}"
         wtit = (f"{difname}".replace(":", ";") + "_dif")
         difference_titles.append(difname)
@@ -4593,9 +4894,10 @@ def r_difmaps():
                     startrow = ws.max_row +5
                     endrow = ws.max_row + 250
                 for peptide in sorted_peptides_first:
-                    startvalues = peptide_starts.get(peptide, None)
+                    startvalues = pro_peptide_starts.get((protein_one, peptide), None)
                     startvalue= int(startvalues[0]) - seq_start[first]
-                    endvalues = peptide_ends.get(peptide, None)
+                    endvalues = pro_peptide_ends.get((protein_one, peptide), None)
+                    #cheese: edit here if peptides with the same sequence and different startvalues should not be compared
                     endvalue = int(endvalues[0]) - seq_start[first]
                     peptide_length = len(peptide)
                     if exp_bt_on_c == True:
@@ -4639,7 +4941,9 @@ def r_difmaps():
                     if diftake is not None:
                         for row in ws.iter_rows(min_row=startrow, max_row=startrow):
                             row[0].value = timepoint
-                        for row in ws.iter_rows(min_row=startrow,max_row=endrow):
+                        for i, row in enumerate(ws.iter_rows(min_row=startrow,max_row=endrow), start=startrow):
+                            if i > highest_row:
+                                highest_row = i
                             cells = row[startvalue + 1:endvalue + 2]
                             if all(cell.value is None for cell in cells):
                                 row[startvalue + 1].value = diftake
@@ -4670,44 +4974,45 @@ def r_difmaps():
                                 if ch1 == True or ch2 == True:
                                     if diftake != 0 and diftake != -99999:
                                         row[startvalue+1].value = "*"
+                                        asterisk_in_state = True
                                         row[startvalue+1].alignment = Alignment(textRotation=90, vertical='center')
 
                                         if d_col_length >= 1 and diftake >= d_val_1:
                                             fill = PatternFill(start_color=d_col_1, end_color=d_col_1, fill_type='solid')
-                                            font = Font(color=d_text_1, size=16)
+                                            font = Font(color=d_text_1, size=12)
                                         elif d_col_length >= 2 and diftake >= d_val_2:
                                             fill = PatternFill(start_color=d_col_2, end_color=d_col_2, fill_type='solid')
-                                            font = Font(color=d_text_2, size=16)
+                                            font = Font(color=d_text_2, size=12)
                                         elif d_col_length >= 3 and diftake >= d_val_3:
                                             fill = PatternFill(start_color=d_col_3, end_color=d_col_3, fill_type='solid')
-                                            font = Font(color=d_text_3, size=16)
+                                            font = Font(color=d_text_3, size=12)
                                         elif d_col_length >= 4 and diftake >= d_val_4:
                                             fill = PatternFill(start_color=d_col_4, end_color=d_col_4, fill_type='solid')
-                                            font = Font(color=d_text_4, size=16)
+                                            font = Font(color=d_text_4, size=12)
                                         elif d_col_length >= 5 and diftake >= d_val_5:
                                             fill = PatternFill(start_color=d_col_5, end_color=d_col_5, fill_type='solid')
-                                            font = Font(color=d_text_5, size=16)
+                                            font = Font(color=d_text_5, size=12)
                                         elif diftake > 0:
                                             fill = PatternFill(start_color=d_col_gtz, end_color=d_col_gtz, fill_type='solid')
-                                            font = Font(color=d_text_gtz, size=16)
+                                            font = Font(color=d_text_gtz, size=12)
                                         elif p_col_length >= 1 and diftake <= (-1) * p_val_1:
                                             fill = PatternFill(start_color=p_col_1, end_color=p_col_1, fill_type='solid')
-                                            font = Font(color=p_text_1, size=16)
+                                            font = Font(color=p_text_1, size=12)
                                         elif p_col_length >= 2 and diftake <= (-1) * p_val_2:
                                             fill = PatternFill(start_color=p_col_2, end_color=p_col_2, fill_type='solid')
-                                            font = Font(color=p_text_2, size=16)
+                                            font = Font(color=p_text_2, size=12)
                                         elif p_col_length >= 3 and diftake <= (-1) * p_val_3:
                                             fill = PatternFill(start_color=p_col_3, end_color=p_col_3, fill_type='solid')
-                                            font = Font(color=p_text_3, size=16)
+                                            font = Font(color=p_text_3, size=12)
                                         elif p_col_length >= 4 and diftake <= (-1) * p_val_4:
                                             fill = PatternFill(start_color=p_col_4, end_color=p_col_4, fill_type='solid')
-                                            font = Font(color=p_text_4, size=16)
+                                            font = Font(color=p_text_4, size=12)
                                         elif p_col_length >= 5 and diftake <= (-1) * p_val_5:
                                             fill = PatternFill(start_color=p_col_5, end_color=p_col_5, fill_type='solid')
-                                            font = Font(color=p_text_5, size=16)
+                                            font = Font(color=p_text_5, size=12)
                                         elif diftake < 0:
                                             fill = PatternFill(start_color=p_col_gtz, end_color=p_col_gtz, fill_type='solid')
-                                            font = Font(color=p_text_gtz, size=16)
+                                            font = Font(color=p_text_gtz, size=12)
 
                                         row[startvalue+1].fill = fill
                                         row[startvalue+1].font = font
@@ -4727,7 +5032,9 @@ def r_difmaps():
         increase_progress(1.5)
 
 
-
+        if asterisk_in_state == True:
+            for row in ws.iter_rows(min_row=highest_row+2, max_row=highest_row+2):
+                row[1].value = "* = no maxD for peptide, average back exchange used"
 
 
         white_fill = PatternFill(start_color="FFFFFFFF", end_color="FFFFFFFF", fill_type='solid')
@@ -4737,12 +5044,17 @@ def r_difmaps():
                     cell.fill = white_fill
 
 
-
+        for row in ws.iter_rows(min_row=2, max_row=2):
+            for cell in row:
+                cell.font = courier_new_style
+                
         for i, column in enumerate(ws.columns):
             if i == 0:
                 continue
             ws.column_dimensions[column[0].column_letter].width = full_pep_width_enter.get()
-
+            
+        for row in ws.rows:
+            ws.row_dimensions[row[0].row].height = 14.4
 
 
 
@@ -4756,7 +5068,7 @@ def r_difmaps():
         for row in ws.iter_rows(min_row=3):
             for cell in row[1:]:
                 cell_v = cell.value
-                if cell_v != "*":
+                if cell_v != "*" and cell_v != "* = no maxD for peptide, average back exchange used":
                     if cell_v == -99999:
                         fill = PatternFill(start_color=b_col_abs, end_color=b_col_abs, fill_type='solid')
                         cell.number_format = ';;;'
@@ -4819,6 +5131,7 @@ def r_chiclet():
     ws = wb.create_sheet("Chiclets")
     plot_number = 0
     for state in states:
+        asterisk_in_state = False
         if plot_number == 0:
             plot_start = 1
             plot_end = 50
@@ -4836,14 +5149,15 @@ def r_chiclet():
                 continue
             ws.cell(row=2, column=plot_start+3+tpnum, value = s_timepoints[state][tpnum])
             tpnum = tpnum + 1
-
-        sorted_peptides = sorted(peplist[state], key=lambda p: (int(peptide_starts.get(p, [0])[0]), len(p)))
+        
+        protein = state.split("~")[0]
+        sorted_peptides = sorted(peplist[state], key=lambda x: (int(pro_peptide_starts.get((x[0], x[1]), [0])[0]), len(x[1])))
 
         pepnum = 0
         for peptide in sorted_peptides:
-            startvalues = peptide_starts.get(peptide, None)
+            startvalues = pro_peptide_starts.get((protein, peptide), None)
             startvalue= int(startvalues[0])
-            endvalues = peptide_ends.get(peptide, None)
+            endvalues = pro_peptide_ends.get((protein, peptide), None)
             endvalue = int(endvalues[0])
 
             ws.cell(row=3+pepnum, column=plot_start, value = peptide)
@@ -4859,9 +5173,14 @@ def r_chiclet():
             try:
                 if noD_dic_states[state][peptide] == True:
                     ws.cell(row=3+pepnum, column=plot_start+3+tnum, value="*")
+                    asterisk_in_state = True
             except:
                 pass
             pepnum = pepnum + 1
+            
+        if asterisk_in_state == True:
+            ws.cell(row=7+pepnum, column=plot_start+3+tnum, value="* = no maxD for peptide")
+            ws.cell(row=8+pepnum, column=plot_start+3+tnum, value="average back exchange used")
         ws.column_dimensions[get_column_letter(plot_start)].width = 30
         plot_number = plot_number + 1
 
@@ -4885,7 +5204,7 @@ def r_chiclet():
             else:
                 if cell.row >= 3:
                     cell_v = cell.value
-                    if cell_v != "*":
+                    if cell_v != "*" and cell_v != "* = no maxD for peptide" and cell_v != "average back exchange used":
                         if uptake_color_length >= 1 and cell_v is not None and cell_v >= uptake_val_1:
                             fill = PatternFill(start_color=uptake_col_1, end_color=uptake_col_1, fill_type='solid')
                             cell.number_format = ';;;'
@@ -4934,10 +5253,14 @@ def r_chicdif():
     ws = wb.create_sheet("Chiclet Differences")
     plot_number = 0
     for stt, pair in new_dic_of_dif_list.items():
+        asterisk_in_state = False
+        asterisk_in_start = False
         first = pair[0]
         second = pair[1]
-        sorted_peptides_first = sorted(peplist[first], key=lambda p: (int(peptide_starts.get(p, [0])[0]), len(p)))
-        sorted_peptides_second = sorted(peplist[second], key=lambda p: (int(peptide_starts.get(p, [0])[0]), len(p)))
+        protein_one = first.split("~")[0]
+        protein_two = second.split("~")[0]
+        sorted_peptides_first = sorted(peplist[first], key=lambda x: (int(pro_peptide_starts.get((x[0], x[1]), [0])[0]), len(x[1])))
+        sorted_peptides_second = sorted(peplist[second], key=lambda x: (int(pro_peptide_starts.get((x[0], x[1]), [0])[0]), len(x[1])))
         difname = f"{stt}"
         if plot_number == 0:
             plot_start = 1
@@ -4961,20 +5284,41 @@ def r_chicdif():
         
         
         pepset = set(peplist[first] + peplist[second])
-        all_sorted_peptides = sorted(pepset, key=lambda p: (int(peptide_starts.get(p, [0])[0]), len(p)))
+        pepset_peptide_starts = {}
+        for peptide in pepset:
+            pepset_peptide_starts[peptide] = pro_peptide_starts.get((protein_one, peptide))
+            if pepset_peptide_starts[peptide] == None:
+                pepset_peptide_starts[peptide] = pro_peptide_starts.get((protein_two, peptide))
+        all_sorted_peptides = sorted(pepset, key=lambda p: (int(pepset_peptide_starts.get(p, [0])[0]), len(p)))
+
         
 
         pepnum = 0
         for peptide in all_sorted_peptides:
             if peptide in peplist[first] and peptide in peplist[second]:
-                startvalues = peptide_starts.get(peptide, None)
+                startvalues = pro_peptide_starts.get((protein_one, peptide), None)
                 startvalue= int(startvalues[0])
-                endvalues = peptide_ends.get(peptide, None)
+                endvalues = pro_peptide_ends.get((protein_one, peptide), None)
                 endvalue = int(endvalues[0])
+                
+                startvalues2 = pro_peptide_starts.get((protein_two, peptide), None)
+                startvalue2 = int(startvalues2[0])
+                
+
+                
+
 
                 ws.cell(row=3+pepnum, column=plot_start, value = peptide)
-                ws.cell(row=3+pepnum, column=plot_start+1, value = startvalue)
-                ws.cell(row=3+pepnum, column=plot_start+2, value = endvalue)
+                if startvalue != startvalue2:
+                    ws.cell(row=3+pepnum, column=plot_start+1, value = (str(startvalue)+"*"))
+                    asterisk_in_start = True
+                else:
+                    ws.cell(row=3+pepnum, column=plot_start+1, value = startvalue)
+                if startvalue != startvalue2:
+                    ws.cell(row=3+pepnum, column=plot_start+2, value = (str(endvalue)+"*"))
+                    asterisk_in_start = True
+                else:
+                    ws.cell(row=3+pepnum, column=plot_start+2, value = endvalue)
                 tnum = 0
                 for timepoint in s_timepoints[first]:
                     if timepoint in s_timepoints[second]:
@@ -5009,13 +5353,18 @@ def r_chicdif():
                     pass
                 if ch1 == True or ch2 == True:
                     ws.cell(row=3+pepnum, column=plot_start+3+tnum, value="*")
+                    asterisk_in_state = True
 
                 pepnum = pepnum + 1
                 
             elif white_var.get() == 1:
-                startvalues = peptide_starts.get(peptide, None)
+                startvalues = pro_peptide_starts.get((protein_one, peptide), None)
+                if startvalues == None:
+                    startvalues = pro_peptide_starts.get((protein_two, peptide), None)
                 startvalue= int(startvalues[0])
-                endvalues = peptide_ends.get(peptide, None)
+                endvalues = pro_peptide_ends.get((protein_one, peptide), None)
+                if endvalues == None:
+                    endvalues = pro_peptide_ends.get((protein_two, peptide), None)
                 endvalue = int(endvalues[0])
 
                 ws.cell(row=3+pepnum, column=plot_start, value = peptide)
@@ -5031,7 +5380,16 @@ def r_chicdif():
                         tnum = tnum + 1
                 
                 pepnum += 1
-                
+        
+        
+        if asterisk_in_state == True:
+            ws.cell(row=7+pepnum, column=plot_start+3+tnum, value="* = no maxD for peptide")
+            ws.cell(row=8+pepnum, column=plot_start+3+tnum, value="average back exchange used")
+        
+        if asterisk_in_start == True:
+            ws.cell(row=5+pepnum, column=plot_start+1, value="* = peptide sequence found at different positions in states")
+
+            
         ws.column_dimensions[get_column_letter(plot_start)].width = 30
         plot_number = plot_number + 1
 
@@ -5054,7 +5412,7 @@ def r_chicdif():
             else:
                 if cell.row >= 3:
                     cell_v = cell.value
-                    if cell_v != "*":
+                    if cell_v != "*" and cell_v != "* = no maxD for peptide" and cell_v != "average back exchange used":
                         if cell_v == -99999:
                             fill = PatternFill(start_color=b_col_abs, end_color=b_col_abs, fill_type='solid')
                             cell.number_format = ';;;'
@@ -5101,7 +5459,11 @@ def r_chicdif():
                             cell.fill = fill
 
 
-
+    for row in ws.iter_rows():
+        for cell in row:
+            if cell.value == -99999:
+                cell.value = None
+                
     increase_progress(0.33)
 
 def r_condpeps():
@@ -5113,7 +5475,10 @@ def r_condpeps():
     
     whitefont = Font(color="FFFFFFFF")
     for state in states_to_look_in:
-        sorted_peptides = sorted(peplist[state], key=lambda p: (int(peptide_starts.get(p, [0])[0]), len(p)))
+        asterisk_in_state = False
+        highest_row = 1
+        protein = state.split("~")[0]
+        sorted_peptides = sorted(peplist[state], key=lambda x: (int(pro_peptide_starts.get((x[0], x[1]), [0])[0]), len(x[1])))
         ws_title = (f"{state}".replace(":", ";") + "_cond")[-30:]
         ws = wb.create_sheet(title=ws_title)
         cell_reference_list = list()
@@ -5128,9 +5493,9 @@ def r_condpeps():
                 startrow = ws.max_row +5
                 endrow = ws.max_row + 250
             for peptide in sorted_peptides:
-                startvalues = peptide_starts.get(peptide, None)
+                startvalues = pro_peptide_starts.get((protein, peptide), None)
                 startvalue= int(startvalues[0]) - seq_start[state]
-                endvalues = peptide_ends.get(peptide, None)
+                endvalues = pro_peptide_ends.get((protein, peptide), None)
                 endvalue = int(endvalues[0]) - seq_start[state]
                 peptide_length = len(peptide)
                 Cuptake = None
@@ -5152,7 +5517,9 @@ def r_condpeps():
                 if Cuptake is not None:
                     for row in ws.iter_rows(min_row=startrow, max_row=startrow):
                         row[0].value = timepoint
-                    for row in ws.iter_rows(min_row=startrow,max_row=endrow):
+                    for i, row in enumerate(ws.iter_rows(min_row=startrow,max_row=endrow), start=startrow):
+                        if i > highest_row:
+                            highest_row = i
                         cells = row[startvalue + 1:endvalue + 2]
                         if all(cell.value is None for cell in cells):
                             row[startvalue + 1].value = Cuptake
@@ -5239,48 +5606,49 @@ def r_condpeps():
                                 if peptide in noD_dic_states[state]:
                                     if Cuptake != 0 and Cuptake != -99999:
                                         row[startvalue+1].value = "*"
+                                        asterisk_in_state = True
                                         #row[startvalue+1].alignment = Alignment(textRotation=90, vertical='center')
                                         if uptake_color_length >= 1 and Cuptake > uptake_val_1:
                                             fill = PatternFill(start_color=uptake_col_1, end_color=uptake_col_1, fill_type='solid')
-                                            font = Font(color=uptake_text_1, size=16)
+                                            font = Font(color=uptake_text_1, size=12)
                                         elif uptake_color_length >= 2 and Cuptake > uptake_val_2:
                                             fill = PatternFill(start_color=uptake_col_2, end_color=uptake_col_2, fill_type='solid')
-                                            font = Font(color=uptake_text_2, size=16)
+                                            font = Font(color=uptake_text_2, size=12)
                                         elif uptake_color_length >= 3 and Cuptake > uptake_val_3:
                                             fill = PatternFill(start_color=uptake_col_3, end_color=uptake_col_3, fill_type='solid')
-                                            font = Font(color=uptake_text_3, size=16)
+                                            font = Font(color=uptake_text_3, size=12)
                                         elif uptake_color_length >= 4 and Cuptake > uptake_val_4:
                                             fill = PatternFill(start_color=uptake_col_4, end_color=uptake_col_4, fill_type='solid')
-                                            font = Font(color=uptake_text_4, size=16)
+                                            font = Font(color=uptake_text_4, size=12)
                                         elif uptake_color_length >= 5 and Cuptake > uptake_val_5:
                                             fill = PatternFill(start_color=uptake_col_5, end_color=uptake_col_5, fill_type='solid')
-                                            font = Font(color=uptake_text_5, size=16)
+                                            font = Font(color=uptake_text_5, size=12)
                                         elif uptake_color_length >= 6 and Cuptake > uptake_val_6:
                                             fill = PatternFill(start_color=uptake_col_6, end_color=uptake_col_6, fill_type='solid')
-                                            font = Font(color=uptake_text_6, size=16)
+                                            font = Font(color=uptake_text_6, size=12)
                                         elif uptake_color_length >= 7 and Cuptake > uptake_val_7:
                                             fill = PatternFill(start_color=uptake_col_7, end_color=uptake_col_7, fill_type='solid')
-                                            font = Font(color=uptake_text_7, size=16)
+                                            font = Font(color=uptake_text_7, size=12)
                                         elif uptake_color_length >= 8 and Cuptake > uptake_val_8:
                                             fill = PatternFill(start_color=uptake_col_8, end_color=uptake_col_8, fill_type='solid')
-                                            font = Font(color=uptake_text_8, size=16)
+                                            font = Font(color=uptake_text_8, size=12)
                                         elif uptake_color_length >= 9 and Cuptake > uptake_val_9:
                                             fill = PatternFill(start_color=uptake_col_9, end_color=uptake_col_9, fill_type='solid')
-                                            font = Font(color=uptake_text_9, size=16)
+                                            font = Font(color=uptake_text_9, size=12)
                                         elif Cuptake > 0.0:
                                             fill = PatternFill(start_color=uptake_gtz_key, end_color=uptake_gtz_key, fill_type='solid')
-                                            font = Font(color=uptake_gtz_text, size=16)
+                                            font = Font(color=uptake_gtz_text, size=12)
                                         elif Cuptake == 0:
                                             fill = PatternFill(start_color=uptake_eqz_key, end_color=uptake_eqz_key, fill_type='solid')
-                                            font = Font(color=uptake_eqz_text, size=16)
+                                            font = Font(color=uptake_eqz_text, size=12)
                                             cell.number_format = ';;;'
                                         elif Cuptake == -99999:
                                             fill = PatternFill(start_color=uptake_abs_key, end_color=uptake_abs_key, fill_type='solid')
-                                            font = Font(color=uptake_abs_text, size=16)
+                                            font = Font(color=uptake_abs_text, size=12)
                                             cell.number_format = ';;;'
                                         elif Cuptake < 0.0:
                                             fill = PatternFill(start_color=uptake_ltz_key, end_color=uptake_ltz_key, fill_type='solid')
-                                            font = Font(color=uptake_ltz_text, size=16)
+                                            font = Font(color=uptake_ltz_text, size=12)
                                         row[startvalue+1].fill = fill
                                         row[startvalue+1].font = font
                             except:
@@ -5296,8 +5664,15 @@ def r_condpeps():
 
             timepoint_number = timepoint_number + 1
 
-
-
+            
+            
+        for row in ws.iter_rows(min_row=2, max_row=2):
+            for cell in row:
+                cell.font = courier_new_style
+                
+        if asterisk_in_state == True:
+            for row in ws.iter_rows(min_row=highest_row+2, max_row=highest_row+2):
+                row[1].value = "* = no maxD for peptide, average back exchange used"
 
 
         white_fill = PatternFill(start_color="FFFFFFFF", end_color="FFFFFFFF", fill_type='solid')
@@ -5327,7 +5702,7 @@ def r_condpeps():
         for row in ws.iter_rows(min_row=3):
             for cell in row[1:]:
                 cell_v = cell.value
-                if cell.coordinate not in cell_reference_list and cell_v != "*":
+                if cell.coordinate not in cell_reference_list and cell_v != "*" and cell_v != "* = no maxD for peptide, average back exchange used":
                     if uptake_color_length >= 1 and cell_v is not None and cell_v > uptake_val_1:
                         fill = PatternFill(start_color=uptake_col_1, end_color=uptake_col_1, fill_type='solid')
                         cell.number_format = ';;;'
@@ -5391,10 +5766,14 @@ def r_difcond():
     array = np.zeros((77,53))
     whitefont = Font(color="FFFFFFFF")
     for stt, pair in  new_dic_of_dif_list.items():
+        asterisk_in_state = False
+        highest_row = 1
         first = pair[0]
         second = pair[1]
-        sorted_peptides_first = sorted(peplist[first], key=lambda p: (int(peptide_starts.get(p, [0])[0]), len(p)))
-        sorted_peptides_second = sorted(peplist[second], key=lambda p: (int(peptide_starts.get(p, [0])[0]), len(p)))
+        protein_one = first.split("~")[0]
+        protein_two = second.split("~")[0]
+        sorted_peptides_first = sorted(peplist[first], key=lambda x: (int(pro_peptide_starts.get((x[0], x[1]), [0])[0]), len(x[1])))
+        sorted_peptides_second = sorted(peplist[second], key=lambda x: (int(pro_peptide_starts.get((x[0], x[1]), [0])[0]), len(x[1])))
         difname = f"{stt}"
         ws_title = (f"{difname}".replace(":", ";") + "_cond")
         ws = wb.create_sheet(title=ws_title)
@@ -5411,10 +5790,11 @@ def r_difcond():
                     startrow = ws.max_row +5
                     endrow = ws.max_row + 250
                 for peptide in sorted_peptides_first:
+                    #cheese: same things here for different proteins
                     if peptide in sorted_peptides_second:
-                        startvalues = peptide_starts.get(peptide, None)
+                        startvalues = pro_peptide_starts.get((protein_one, peptide), None)
                         startvalue= int(startvalues[0]) - seq_start[first]
-                        endvalues = peptide_ends.get(peptide, None)
+                        endvalues = pro_peptide_ends.get((protein_two, peptide), None)
                         endvalue = int(endvalues[0]) - seq_start[first]
                         peptide_length = len(peptide)
                         diftake = None
@@ -5496,7 +5876,9 @@ def r_difcond():
                         if diftake is not None:
                             for row in ws.iter_rows(min_row=startrow, max_row=startrow):
                                 row[0].value = timepoint
-                            for row in ws.iter_rows(min_row=startrow,max_row=endrow):
+                            for i, row in enumerate(ws.iter_rows(min_row=startrow,max_row=endrow), start=startrow):
+                                if i > highest_row:
+                                    highest_row = i
                                 cells = row[startvalue + 1:endvalue + 2]
                                 if all(cell.value is None for cell in cells):
                                     row[startvalue + 1].value = diftake
@@ -5669,45 +6051,46 @@ def r_difcond():
                                     if ch1 == True or ch2 == True:
                                         if diftake != 0 and diftake != -99999:
                                             row[startvalue+1].value = "*"
+                                            asterisk_in_state = True
                                             #row[startvalue+1].alignment = Alignment(textRotation=90, vertical='center', horizontal='left')
 
 
                                             if d_col_length >= 1 and diftake >= d_val_1:
                                                 fill = PatternFill(start_color=d_col_1, end_color=d_col_1, fill_type='solid')
-                                                font = Font(color=d_text_1, size=16)
+                                                font = Font(color=d_text_1, size=12)
                                             elif d_col_length >= 2 and diftake >= d_val_2:
                                                 fill = PatternFill(start_color=d_col_2, end_color=d_col_2, fill_type='solid')
-                                                font = Font(color=d_text_2, size=16)
+                                                font = Font(color=d_text_2, size=12)
                                             elif d_col_length >= 3 and diftake >= d_val_3:
                                                 fill = PatternFill(start_color=d_col_3, end_color=d_col_3, fill_type='solid')
-                                                font = Font(color=d_text_3, size=16)
+                                                font = Font(color=d_text_3, size=12)
                                             elif d_col_length >= 4 and diftake >= d_val_4:
                                                 fill = PatternFill(start_color=d_col_4, end_color=d_col_4, fill_type='solid')
-                                                font = Font(color=d_text_4, size=16)
+                                                font = Font(color=d_text_4, size=12)
                                             elif d_col_length >= 5 and diftake >= d_val_5:
                                                 fill = PatternFill(start_color=d_col_5, end_color=d_col_5, fill_type='solid')
-                                                font = Font(color=d_text_5, size=16)
+                                                font = Font(color=d_text_5, size=12)
                                             elif diftake > 0:
                                                 fill = PatternFill(start_color=d_col_gtz, end_color=d_col_gtz, fill_type='solid')
-                                                font = Font(color=d_text_gtz, size=16)
+                                                font = Font(color=d_text_gtz, size=12)
                                             elif p_col_length >= 1 and diftake <= (-1) * p_val_1:
                                                 fill = PatternFill(start_color=p_col_1, end_color=p_col_1, fill_type='solid')
-                                                font = Font(color=p_text_1, size=16)
+                                                font = Font(color=p_text_1, size=12)
                                             elif p_col_length >= 2 and diftake <= (-1) * p_val_2:
                                                 fill = PatternFill(start_color=p_col_2, end_color=p_col_2, fill_type='solid')
-                                                font = Font(color=p_text_2, size=16)
+                                                font = Font(color=p_text_2, size=12)
                                             elif p_col_length >= 3 and diftake <= (-1) * p_val_3:
                                                 fill = PatternFill(start_color=p_col_3, end_color=p_col_3, fill_type='solid')
-                                                font = Font(color=p_text_3, size=16)
+                                                font = Font(color=p_text_3, size=12)
                                             elif p_col_length >= 4 and diftake <= (-1) * p_val_4:
                                                 fill = PatternFill(start_color=p_col_4, end_color=p_col_4, fill_type='solid')
-                                                font = Font(color=p_text_4, size=16)
+                                                font = Font(color=p_text_4, size=12)
                                             elif p_col_length >= 5 and diftake <= (-1) * p_val_5:
                                                 fill = PatternFill(start_color=p_col_5, end_color=p_col_5, fill_type='solid')
-                                                font = Font(color=p_text_5, size=16)
+                                                font = Font(color=p_text_5, size=12)
                                             elif diftake < 0:
                                                 fill = PatternFill(start_color=p_col_gtz, end_color=p_col_gtz, fill_type='solid')
-                                                font = Font(color=p_text_gtz, size=16)
+                                                font = Font(color=p_text_gtz, size=12)
                                             row[startvalue+1].fill = fill
                                             row[startvalue+1].font = font
 
@@ -5723,7 +6106,15 @@ def r_difcond():
 
 
                     timepoint_number = timepoint_number + 1
-
+                    
+                    
+        for row in ws.iter_rows(min_row=2, max_row=2):
+            for cell in row:
+                cell.font = courier_new_style
+                
+        if asterisk_in_state == True:
+            for row in ws.iter_rows(min_row=highest_row+2, max_row=highest_row+2):
+                row[1].value = "* = no maxD for peptide, average back exchange used"
 
         white_fill = PatternFill(start_color="FFFFFFFF", end_color="FFFFFFFF", fill_type='solid')
         for row in ws.rows:
@@ -5749,7 +6140,7 @@ def r_difcond():
         for row in ws.iter_rows(min_row=3):
             for cell in row[1:]:
                 cell_v = cell.value
-                if cell.coordinate not in cell_reference_list and cell_v != "*":
+                if cell.coordinate not in cell_reference_list and cell_v != "*" and cell_v != "* = no maxD for peptide, average back exchange used":
                     if cell_v == -99999:
                         fill = PatternFill(start_color=b_col_abs, end_color=b_col_abs, fill_type='solid')
                         cell.number_format = ';;;'
@@ -5846,6 +6237,7 @@ def r_heat_map():
                 for k, row_cells in enumerate(sheet.iter_rows(min_row=i, max_row=(tp_starts[j+1][0] - 1) if j+1 < len(tp_starts) else None)):
                     ws.append([(cell.value) for cell in row_cells])
                 ws.delete_cols(1)
+                ws.delete_rows(k)
                 for l, col in enumerate(ws.iter_cols(values_only=True)):
                     if col[0] is None:
                         continue
@@ -5855,11 +6247,14 @@ def r_heat_map():
                         ws.cell(row=1, column=l+1, value=1)
                 for row in ws.iter_rows(min_row=2):
                     for p, cell in enumerate(row):
-                        if cell.value is not None:
+                        if cell.value is not None and cell.value != -99999:
                             try:
                                 cell.value = (cell.value * linear_map_multiplier)
                             except:
-                                cell.value = (row[p+1].value * linear_map_multiplier)
+                                if cell.value == "*":
+                                    cell.value = (row[p+1].value * linear_map_multiplier)
+                                else:
+                                    cell.value = None
                                 
                     
                 
@@ -6049,7 +6444,6 @@ all_predicted_labels_lengths = {}
         
                     
                     
-                    
 def r_uptake_plots():
     global a_horizontal, a_vertical
     last_filled_position = (0, 0)
@@ -6064,35 +6458,97 @@ def r_uptake_plots():
     plt.subplots_adjust(wspace=0.4, hspace=0.6)
     fig_idx = 0
     page_count = 1
-    all_peptides = []
+    
+
+    all_peptides = []      
     for state in order_state_dic.values():
         if state != False and state != "False":
+            protein = state.split("~")[0]
             for peptide in peplist[state]:
-                if peptide in all_peptides:
+                if (protein, peptide) in all_peptides:
                     continue
-                all_peptides.append(peptide)
-            
-    sorted_all_peptides = sorted(all_peptides, key=lambda p: (int(peptide_starts.get(p, [0])[0]), len(p)))
-    new_sorted_all_peptides = sorted_all_peptides       
+                all_peptides.append((protein, peptide))  
+                    
+    seg_proteins = True
+    if seg_proteins == False:             
+        sorted_all_peptides = sorted(all_peptides, key=lambda x: (int(pro_peptide_starts.get((x[0], x[1]), [0])[0]), len(x[1])))
+    if seg_proteins == True:
+        sorted_all_peptides = sorted(
+            all_peptides,
+            key=lambda x: (
+                x[0],  # Sort primarily by protein name
+                int(pro_peptide_starts.get((x[0], x[1]), [0])[0]),  # Secondary sort by start position
+                len(x[1])  # Tertiary sort by peptide length
+            )
+        )
+                
+    new_sorted_all_peptides = sorted_all_peptides  
     
-    if cplt_chkval.get() == 1:
-        states_to_look_in = order_state_dic.values()
-        states_to_look_in = [x for x in states_to_look_in if x != False]
-        for state in states_to_look_in:
-            new_sorted_all_peptides = [x for x in new_sorted_all_peptides if x in peplist[state]]
-            
-    if len(new_sorted_all_peptides) == 0:
-        new_sorted_all_peptides = sorted_all_peptides    
-        print("No peptides contain all states. Command ignored")
+
+#    if seg_proteins == False:
+#        if cplt_chkval.get() == 1:
+#            states_to_look_in = order_state_dic.values()
+#            states_to_look_in = [x for x in states_to_look_in if x != False]
+#            for state in states_to_look_in:
+#                new_sorted_all_peptides = [x for x in new_sorted_all_peptides if x in peplist[state]]
+#    if seg_proteins == True:
+#        if cplt_chkval.get() == 1:
+#            states_to_look_in = order_state_dic.values()
+#            states_to_look_in = [x for x in states_to_look_in if x != False]
+#            
+#            
+#    if len(new_sorted_all_peptides) == 0:
+#        new_sorted_all_peptides = sorted_all_peptides    
+#        print("No peptides contain all states. Command ignored")
+        
+        
     
-    for idx, peptide in enumerate(new_sorted_all_peptides):
+    
+    last_protein = None
+    idx_increment = 0
+    empty_protein_boxes = list()
+    for idx, (protein, peptide) in enumerate(new_sorted_all_peptides):
+        working_idx = idx + idx_increment
+        if protein != last_protein:
+            if a_vertical is True:
+                row = working_idx % 48 // 6
+                col = working_idx % 48 % 6
+            if a_horizontal is True:
+                row = working_idx % 48 // 8
+                col = working_idx % 48 % 8
+            empty_protein_box = (row, col)
+            empty_protein_boxes.append(empty_protein_box)
+            if last_protein != None:
+                if (working_idx+1) % 48 == 0:
+                    for (row, col) in empty_protein_boxes:
+                        axes[row, col].set_xticks([])
+                        axes[row, col].set_yticks([])
+                    empty_protein_boxes = []
+                    pdf_pages.savefig(fig)
+                    plt.close(fig)
+                    if idx < len(new_sorted_all_peptides) - 1:
+                        if a_vertical is True:
+                            fig, axes = plt.subplots(8, 6, figsize=(8.5, 11))
+                        if a_horizontal is True:
+                            fig, axes = plt.subplots(6, 8, figsize=(11, 8.5))
+                        fig.text(0.5, 0.04, f"{x_enter.get()}", ha='center', va='center', fontsize=12)
+                        fig.text(0.04, 0.5, f"{y_enter.get()}", ha='center', va='center', rotation='vertical', fontsize=12)
+                        plt.subplots_adjust(wspace=0.4, hspace=0.6)
+                        page_count += 1
+                
+            idx_increment += 1
+            
+        
+        working_idx = idx + idx_increment
+        last_protein = protein
+        
         
         if a_vertical is True:
-            row = idx % 48 // 6
-            col = idx % 48 % 6
+            row = working_idx % 48 // 6
+            col = working_idx % 48 % 6
         if a_horizontal is True:
-            row = idx % 48 // 8
-            col = idx % 48 % 8
+            row = working_idx % 48 // 8
+            col = working_idx % 48 % 8
         ax = axes[row, col]
         
         
@@ -6136,9 +6592,9 @@ def r_uptake_plots():
         ax.set_yticks(y_ticks)
             
 
-        startvalues = peptide_starts.get(peptide, None)
+        startvalues = pro_peptide_starts.get((protein, peptide), None)
         startvalue= int(startvalues[0])
-        endvalues = peptide_ends.get(peptide, None)
+        endvalues = pro_peptide_ends.get((protein, peptide), None)
         endvalue = int(endvalues[0])
         if len(peptide) < 16:
             ax.set_title(f'$^{{{startvalue}}} {peptide} ^{{{endvalue}}}$', fontsize=5)
@@ -6147,6 +6603,8 @@ def r_uptake_plots():
             ax.set_title(f'$^{{{startvalue}}} {new_peptide_name} ^{{{endvalue}}}$', fontsize=5)
         
         for state in statedic_of_pepdic_raw2:
+            if not state.split("~")[0] == protein:
+                continue
             up_list = []
             tp_list = []
             if correction is False:
@@ -6198,7 +6656,19 @@ def r_uptake_plots():
                             for x, y in zip(tp_list, up_list):
                                 ax.text(x, y, order_symbol_dic[order], color=order_color_dic[order], ha='center', va='center', fontsize=(order_size_dic[order]/3))
     
-        if (idx + 1) % 48 == 0 and idx != 0:
+        
+        end_of_page = False
+        if a_vertical == True:
+            if (row, col) == (7, 5):
+                end_of_page = True
+        if a_horizontal == True:
+            if (row, col) == (5, 7):
+                end_of_page = True
+        if end_of_page == True and idx != 0:
+            for (row, col) in empty_protein_boxes:
+                axes[row, col].set_xticks([])
+                axes[row, col].set_yticks([])
+            empty_protein_boxes = []
             pdf_pages.savefig(fig)
             plt.close(fig)
             if idx < len(new_sorted_all_peptides) - 1:
@@ -6223,7 +6693,7 @@ def r_uptake_plots():
             axes[row, col].axis('off')
     
     
-    if (idx + 1) % 48 != 0 or idx == len(new_sorted_all_peptides) - 1:
+    if (working_idx + 1) % 48 != 0 or idx == len(new_sorted_all_peptides) - 1:
         pdf_pages.savefig(fig)
     plt.close(fig)
     
@@ -6237,6 +6707,9 @@ def r_uptake_plots():
     pdf_pages.close()
     
     increase_progress(2)
+
+
+
 
 
               
@@ -6303,15 +6776,17 @@ def save_wb():
                                     bottom=Side(border_style='thin', color='FF000000'))
                         cell.number_format = ';;;'
            
-        
+        white_fill = PatternFill(start_color="FFFFFFFF", end_color="FFFFFFFF", fill_type='solid')
         target_sheet_title = "localized chiclets"
         target_sheet = wb.create_sheet(title=target_sheet_title)
         target_sheet.append([])
         total_rows_used = 0
+        last_row_index_list = []
         for sheet_name in wb.sheetnames:
             if sheet_name.endswith("_predicts"):
                 source_sheet = wb[sheet_name]
                 last_row_index = source_sheet.max_column
+                last_row_index_list.append(last_row_index)
                 
                 dif_sheet_to_search = sheet_name.removesuffix("_predicts") + "_dif" 
                 dif_sheet = wb[dif_sheet_to_search]
@@ -6327,11 +6802,11 @@ def save_wb():
 
 
                 
-                        
+                
                 for row_index, row in enumerate(source_sheet.iter_rows(values_only=True), start=1):
                     for column_index, cell_value in enumerate(row, start=1):
                         # Get the cell in the target sheet
-                        cell = target_sheet.cell(row=column_index + 1, column=row_index + 2 + total_rows_used)
+                        cell = target_sheet.cell(row=row_index + 1 + total_rows_used , column=column_index + 1)
                         cell.value = cell_value
 
                         # Color the cell based on its value
@@ -6353,33 +6828,54 @@ def save_wb():
                         cell.number_format = ';;;'
                         
                         if column_index + 1 == 2:
-                            cell.border = Border(right=Side(border_style='thin', color='FF000000'),
+                            cell.border = Border(bottom=Side(border_style='thin', color='FF000000'),
                                     left=Side(border_style='thin', color='FF000000'),
                                     top=Side(border_style='thin', color='FF000000'))
                         elif column_index == last_row_index:
                             cell.border = Border(right=Side(border_style='thin', color='FF000000'),
-                                    left=Side(border_style='thin', color='FF000000'),
+                                    top=Side(border_style='thin', color='FF000000'),
                                     bottom=Side(border_style='thin', color='FF000000'))
                         else:
-                            cell.border = Border(right=Side(border_style='thin', color='FF000000'),
-                                    left=Side(border_style='thin', color='FF000000'))
+                            cell.border = Border(top=Side(border_style='thin', color='FF000000'),
+                                    bottom=Side(border_style='thin', color='FF000000'))
                 
-                for row in target_sheet.iter_rows(min_row=1, max_row=1):
-                    row[0 + total_rows_used].value = dif_sheet_to_search.removesuffix("_dif")
-                    for k, timepoint in enumerate(dif_timepoints, start=2):
-                        row[k + total_rows_used].value = timepoint
+               
+                for row in target_sheet.iter_rows(min_row=total_rows_used+1, max_row=total_rows_used+1):
+                    row[0].value = dif_sheet_to_search.removesuffix("_dif")
+                    row[0].font = courier_new_style
+                
+                timepoint_number_increment = 0
+                while timepoint_number_increment < len(dif_timepoints):
+                    cell = target_sheet.cell(row=total_rows_used+2+timepoint_number_increment, column=1)
+                    cell.value = dif_timepoints[timepoint_number_increment]
+                    cell.font = courier_new_style
+                    timepoint_number_increment += 1
+
+
+                  
+                seq_increment = 0
+                while seq_increment < len(row_sequence):
+                    cell = target_sheet.cell(row=total_rows_used+1, column=2+seq_increment)
+                    cell.value = row_sequence[seq_increment]
+                    cell.font = courier_new_style
+                    cell.fill = white_fill
+                    seq_increment += 1
                         
-                for i, res in enumerate(row_sequence):
-                    for row in target_sheet.iter_rows(min_row=i+2, max_row=i+2):
-                        row[1 + total_rows_used].value = res
-                target_sheet.column_dimensions[get_column_letter(2 + total_rows_used)].width = 3
-                for i, num in enumerate(row_numbers):
-                    for row in target_sheet.iter_rows(min_row=i+2, max_row=i+2):
-                        row[0 + total_rows_used].value = num
-                target_sheet.column_dimensions[get_column_letter(1 + total_rows_used)].width = 4.5
+                final_column = max(last_row_index_list)
+                for col in range(2, final_column+2):
+                    target_sheet.column_dimensions[get_column_letter(col)].width = 2.1
+                    
                 
                 total_rows_used += 3
                 total_rows_used += len(dif_timepoints)
+                
+        for sheet_name in wb.sheetnames:
+            if sheet_name.endswith("_predicts"):
+                ws = wb[sheet_name]
+                wb.remove(ws)
+            if sheet_name.endswith("_colprdc"):
+                ws = wb[sheet_name]
+                wb.remove(ws)
                 
 
                         
@@ -6533,11 +7029,13 @@ def make_new_dropdowns():
     timepoint_dropdown.place(x=700, y=30)
     
 
-def create_pictures(event=None):    
+def create_pictures(event=None):
     current_state = state_dropdown.get()
     timepoint = float(timepoint_dropdown.get())
     sheet_to_search = current_state + "_cond"
+    sheet_to_search = sheet_to_search.replace(":", ";")
     ws = wb[sheet_to_search]
+    
     
     
     for i, row in enumerate(ws.iter_rows(min_row=1, values_only=True), start=1):
@@ -6778,8 +7276,9 @@ def create_pictures(event=None):
             cell_value = all_predicts[i + (page_num * 54)]
             square_color = color_mapping.get(cell_value, "pink")
             square_canvas.itemconfig(square_items[i], fill=square_color)
-            cell.bind("<Button-1>", lambda event, index=i, page_num=page_num: update_cell(event, index, page_num))
-            cell.bind("<Button-3>", lambda event, index=i, page_num=page_num: copy_last_saved_value(event, index, page_num))# Right-click to copy last saved value
+            #chaaa
+            cell.bind("<Button-1>", lambda event, index=i, page_num=page_num: update_cell(event, index, page_num, ws, timepoint_index))
+            cell.bind("<Button-3>", lambda event, index=i, page_num=page_num: copy_last_saved_value(event, index, page_num, ws, timepoint_index))# Right-click to copy last saved value
         cell_sets.append(cells)
         square_item_sets.append(square_items)
         square_canvas_sets.append(square_canvas)
@@ -6972,7 +7471,7 @@ def generate_pymol_commands(mapping, all_values, color_mapping2, chain_id):
 
         
         
-def update_cell(event, cell_index, page_num):
+def update_cell(event, cell_index, page_num, ws, timepoint_index):
     cells = cell_sets[page_num]
     cell_value = cells[cell_index].cget("text")
     
@@ -6997,7 +7496,8 @@ def update_cell(event, cell_index, page_num):
         new_value_entry.pack(pady=10)
         new_value_entry.focus_set()  # Set focus on the entry widget
         
-        save_button = tk.Button(edit_cell_window, text="Save", command=lambda: save_value(new_value_entry.get(), cells, page_num))
+        #save_button = tk.Button(edit_cell_window, text="Save", command=lambda: save_value(new_value_entry.get(), cells, page_num))
+        save_button = tk.Button(edit_cell_window, text="Save", command=lambda: [save_value(new_value_entry.get(), cells, page_num), retrieve_values(ws, timepoint_index)])
         save_button.pack()
         tk.Label(edit_cell_window, text="(Or Press Enter)").pack()
 
@@ -7005,6 +7505,7 @@ def update_cell(event, cell_index, page_num):
         edit_cell_window.bind("<Return>", lambda event: save_button.invoke())
     
     edit_cell(event, cells, page_num)
+
 
 def retrieve_values(ws, timepoint_index):
     all_values = []
@@ -7018,6 +7519,8 @@ def retrieve_values(ws, timepoint_index):
             all_values.pop()
         else:
             break
+    
+
     for i, cell in enumerate(ws[timepoint_index+1]):
         cell.value = all_values[i]
     return all_values
@@ -7030,11 +7533,12 @@ def retrieve_values(ws, timepoint_index):
 #        for i, val in enumerate(all_values):
 #            row[i] = val
 
-def copy_last_saved_value(event, cell_index, page_num):
+def copy_last_saved_value(event, cell_index, page_num, ws, timepoint_index):
     global last_saved_value  # Declare global variable
     cells = cell_sets[page_num]
     cells[cell_index].config(text=last_saved_value)
     update_squares(cells, page_num)  # Update the squares when copying the last saved value
+    retrieve_values(ws, timepoint_index)
 
 def update_squares(cells, page_num):
     square_canvas = square_canvas_sets[page_num]
