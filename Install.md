@@ -5,13 +5,13 @@
 4) Create desktop shortcut (Optional) - Open any text editor, such as notepad. Write:
 
 
-   @echo off
+   **@echo off**
    
-   cd /d **_copied_path_**
+   **cd /d _copied_path_**
    
-   python hdxwizard.py
+   **python hdxwizard.py**
    
-   pause 
+   **pause**
 
 
    Save the file as a .bat file. This file will run the HDXWizard code
