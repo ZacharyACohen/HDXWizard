@@ -8,6 +8,8 @@ No, HDXWizard requires python 3.11 to run, which is not available on Windows 7 d
 A
 ## Is HDXWizard free?
 Yes, HDXWizard is free and open source.
+## What input data do I need?
+The program takes DynamX state or cluster data files as input, either as .xlsx or .csv files. Sequences can also be added, but are not necessary for any outputs.
 ## The application does not fit on my computer screen?
 While HDXWizard does not fit perfectly on devices with screens <15 inches, the program still works without issue.
 ## When I correct for a maximally deuterated control (maxD), what values are corrected?
