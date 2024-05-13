@@ -14,8 +14,8 @@
    **pause**
 
 
-   Save the file as a .bat file. This file will run the HDXWizard code
+   Save the file as a .bat file. This file will run the HDXWizard code when opened.
    
-   A desktop shortcut can be created to go to the .bat file. An icon is available to use (WizardIcon.ico)
+   A desktop shortcut can be created for the .bat file. An icon is available to use (WizardIcon.ico) for the shortcut (right click on shortcut > properties > change icon > browse)
 
    If at any point you move the HDXWizard folder, you will need to redirect the .bat file to it
