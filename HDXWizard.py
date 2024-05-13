@@ -48,18 +48,13 @@ import json
 #tkinter, openpyxl, numpy, pandas, matplotlib, xlwings, PyMuPDF, Tensorflow
 
 
-#wishlist
-#making mousewheel scrolling
-#different x scale when making all uptake plots (at least in gk)
-#N-1/ N-2 / N-3 data for peptides
-#at the end go through chiclet difference and convert -99999 values to blanks
 
 
 #print("Initializing Program")
 #print("Checking for Updates")
 #
 #
-version_number = "24.03.19"
+version_number = "24.05.13"
 #
 #try:
 #    program_needs_update = False
@@ -109,6 +104,7 @@ data = []
 seq = None
 
 courier_new_style = Font(name='Courier New')
+size_5_courier_new_style = Font(size=5, name='Courier New')
 
 def open_sd_file_xlsx():
     global sdbt_clicked, data, cdbt_clicked, temp_file_path_excel
@@ -364,12 +360,22 @@ def open_cd_file_csv():
     cdbt_csv.config(state="disabled")
     cdbt_csv.config(relief="sunken", bg="white", fg="black")
     
-    cd_file_path = filedialog.askopenfilename(filetypes=[("CSV Files", "*.csv")])
-    if cd_file_path:
+    cd_file_paths = filedialog.askopenfilenames(filetypes=[("CSV Files", "*.csv")])
+
+    if not cd_file_paths:
+        if cdbt_csv_clicked is True:
+            cdbt_csv.config(state="normal")
+            cdbt_csv.config(relief="raised", bg="green", fg="white")
+        else:
+            cdbt_csv.config(state="normal")
+            cdbt_csv.config(relief="raised", bg="orange", fg="black")
+        return
+        
+    for cd_file_path in cd_file_paths:
         df = pd.read_csv(cd_file_path)
         
         if 'File' not in df.columns:
-            user_choice = tk.messagebox.askyesno("Data Error", "Data Error: This file is not cluster data. Proceed Anyways?")
+            user_choice = tk.messagebox.askyesno("Data Error", "Data Error: This file is not cluster data. Proceed Anyways?", default='no')
             if user_choice:
                 pass
             else:
@@ -411,12 +417,20 @@ def open_cd_file_xlsx():
     cdbt_xlsx.config(state="disabled")
     cdbt_xlsx.config(relief="sunken", bg="white", fg="black")
     
-    cd_file_path = filedialog.askopenfilename(filetypes=[("Excel Files", "*.xlsx")])
-    if cd_file_path:
+    cd_file_paths = filedialog.askopenfilenames(filetypes=[("Excel Files", "*.xlsx")])
+    if not cd_file_paths:
+        if cdbt_xlsx_clicked is True:
+            cdbt_xlsx.config(state="normal")
+            cdbt_xlsx.config(relief="raised", bg="green", fg="white")
+        else:
+            cdbt_xlsx.config(state="normal")
+            cdbt_xlsx.config(relief="raised", bg="orange", fg="black")
+        return
+    for cd_file_path in cd_file_paths:
         df = pd.read_excel(cd_file_path)
         
         if 'File' not in df.columns:
-            user_choice = tk.messagebox.askyesno("Data Error", "Data Error: This file is not cluster data. Proceed Anyways?")
+            user_choice = tk.messagebox.askyesno("Data Error", "Data Error: This file is not cluster data. Proceed Anyways?", default='no')
             if user_choice:
                 pass
             else:
@@ -473,7 +487,17 @@ def clear_data_sdcd():
 
 
 
-
+def get_max_theo(peptide):
+    length = len(peptide)
+    prolinecount=0
+    for letter in peptide:
+        if letter == 'P':
+            prolinecount = prolinecount+1
+    if peptide[0] == 'P':
+        max_theo = length-prolinecount
+    else:
+        max_theo = (length-1)-prolinecount
+    return max_theo
     
 
 
@@ -532,8 +556,22 @@ def seq_txt_off():
 
 def open_sequence_fasta():
     global seqbt_fasta_clicked, fasta_file_path
-    fasta_file_path = filedialog.askopenfilename(filetypes=[("Fasta Files", "*.fasta")])
-    if fasta_file_path:
+    
+    if os.path.exists("NoMessage.txt"):
+        pass
+    else:
+        user_choice = tk.messagebox.askyesno("Fasta Format", "This program will read .fasta file protein names only until the first space, i.e. >BSA BSA will be read as BSA \n\nDo you want to see this message again?", default='no')
+        if user_choice:
+            pass
+        else:
+            dont_show_path = "NoMessage.txt"
+            with open(dont_show_path, 'w') as file:
+                file.write("Empty")
+                
+    fasta_file_paths = filedialog.askopenfilenames(filetypes=[("Fasta Files", "*.fasta")])
+    if not fasta_file_paths:
+        return
+    for fasta_file_path in fasta_file_paths:
         seq_headers = open(fasta_file_path, 'r')
         for i, line in enumerate(seq_headers):
             if i == 0:
@@ -569,8 +607,22 @@ def open_sequence_fasta_off():
 def txt_h_on():
     global txt_h_bt_clicked
     global prot_seq_dic
-    txt_h_file_path = filedialog.askopenfilename(filetypes=[("Text Files", "*.txt")])
-    if txt_h_file_path:
+    
+    if os.path.exists("NoMessage.txt"):
+        pass
+    else:
+        user_choice = tk.messagebox.askyesno("Fasta Format", "This program will read .fasta file protein names only until the first space, i.e. >BSA BSA will be read as BSA \n\nDo you want to see this message again?", default='no')
+        if user_choice:
+            pass
+        else:
+            dont_show_path = "NoMessage.txt"
+            with open(dont_show_path, 'w') as file:
+                file.write("Empty")
+            
+    txt_h_file_paths = filedialog.askopenfilenames(filetypes=[("Text Files", "*.txt")])
+    if not txt_h_file_paths:
+        return
+    for txt_h_file_path in txt_h_file_paths:
         seq_headers = open(txt_h_file_path, 'r')
         
         for i, line in enumerate(seq_headers):
@@ -752,14 +804,15 @@ info_bt.place(x=320, y=75)
 
 
 def check_button_clicks():
-    global difmap_bt_on, pepmap_bt_on, chic_bt_on, cdif_bt_on, condpeps_bt_on, difcond_bt_on, uptake_plot_bt_on, heatmap_bt_on
+    global difmap_bt_on, pepmap_bt_on, chic_bt_on, cdif_bt_on, condpeps_bt_on, difcond_bt_on, uptake_plot_bt_on, heatmap_bt_on    
     if (sdbt_clicked or cdbt_clicked) and (seqbt_txt_clicked or seqbt_fasta_clicked or skip_bt_clicked or txt_h_bt_clicked):
-
+        exp_bt_off()
+        theo_bt_off()
         msg1 = tk.Label(window, text="RFU Calculation and Correction")
         msg1.place(x=15, y=160)
-        exp_bt = tk.Button(window, text="Experimental",bg="orange",fg="black",command=lambda: [theo_bt_off(), exp_bt_on()])
-        exp_bt.place(x=170, y=190)
-        theo_bt = tk.Button(window, text="Theoretical",bg="orange",fg="black",command=lambda: [exp_bt_off(), theo_bt_on()])
+        exp_bt = tk.Button(window, text="Experimental (maxD)",bg="orange",fg="black",command=lambda: [theo_bt_off(), exp_bt_on()])
+        exp_bt.place(x=150, y=190)
+        theo_bt = tk.Button(window, text="Calculated",bg="orange",fg="black",command=lambda: [exp_bt_off(), theo_bt_on()])
         theo_bt.place(x=50, y=190)
 
         x1 = 10
@@ -904,12 +957,12 @@ def uptake_plot_off():
     uptake_plot_bt_on = False
 def heatmap_on():
     global heatmap_bt_on
-    heatmap_bt = tk.Button(window, text="Linear Map",bg="green", fg="white", width=17, command=heatmap_off)
+    heatmap_bt = tk.Button(window, text="Localized Differences",bg="green", fg="white", width=17, command=heatmap_off)
     heatmap_bt.place(x=1340, y=160)
     heatmap_bt_on = True
 def heatmap_off():
     global heatmap_bt_on
-    heatmap_bt = tk.Button(window, text="Linear Map", bg="orange", fg="black", width=17, command=lambda: (heatmap_on(), difcond_on(), difmap_on()))
+    heatmap_bt = tk.Button(window, text="Localized Differences", bg="orange", fg="black", width=17, command=lambda: (heatmap_on(), difcond_on(), difmap_on()))
     heatmap_bt.place(x=1340, y=160)
     heatmap_bt_on = False
 
@@ -1176,7 +1229,7 @@ def create_custom_colors():
             defaultextension=".json",
             initialdir="./Colors",
             title="Save File",
-            initialfile="new_uptake_colors",
+            initialfile="uptake_new_colors",
             filetypes=[("JSON files", "*.json")]
         )
         if file_path:
@@ -1184,8 +1237,14 @@ def create_custom_colors():
                 json.dump(json_data, f, indent=4)
                 title = os.path.basename(file_path)
                 tk.messagebox.showinfo("File Saved", f"File Saved as {title}")
+                
+            uptake_file_names, dif_file_names, local_file_names = update_dir_lists()
+            update_color_comboboxes(uptake_file_names, dif_file_names, local_file_names)
+            popup_window_uptake.focus_set()
+            
         else:
             tk.messagebox.showerror("File Not Saved", "File was not saved")
+            popup_window_uptake.focus_set()
         
 
 
@@ -1202,8 +1261,7 @@ def create_custom_colors():
     canvas.create_rectangle(x1, y1, x2, y2, outline="black", fill="")
     tk.Label(popup_window_uptake, text="Create Custom Colors for All Difference Maps").place(x=370, y=1)
     tk.Label(popup_window_uptake, text="Enter Difference with the highest absolute value differences first. For RFU enter as a decimal").place(x=360, y=50)
-    tk.Label(popup_window_uptake, text="Is this difference in Daltons (Theoretical) or RFU (Experimental)").place(x=360, y=25)
-    #switch between Da and RFU selection
+    tk.Label(popup_window_uptake, text="Is this difference in Daltons (Calculated) or RFU (Experimental/maxD)?").place(x=360, y=25)
     tk.Label(popup_window_uptake, text="Protection").place(x=440, y=70)
     x1=352
     y=89
@@ -1367,7 +1425,7 @@ def create_custom_colors():
     btxtchk2 = tk.Checkbutton(popup_window_uptake, text='', variable=bchkval_2)
     btxtchk2.place(x=589, y=325)
 
-
+    
     def save_colors2():
         pvals = []
         dvals = []
@@ -1498,7 +1556,7 @@ def create_custom_colors():
             defaultextension=".json",
             initialdir="./Colors",
             title="Save File",
-            initialfile="new_dif_colors",
+            initialfile="dif_new_colors",
             filetypes=[("JSON files", "*.json")]
         )
         if file_path:
@@ -1506,25 +1564,177 @@ def create_custom_colors():
                 json.dump(json_data, f, indent=4)
                 title = os.path.basename(file_path)
                 tk.messagebox.showinfo("File Saved", f"File Saved as {title}")
+                
+            uptake_file_names, dif_file_names, local_file_names = update_dir_lists()
+            update_color_comboboxes(uptake_file_names, dif_file_names, local_file_names)
+            popup_window_uptake.focus_set()
+            
         else:
             tk.messagebox.showerror("File Not Saved", "File was not saved")
+            popup_window_uptake.focus_set()
     
 
 
     save_bt_dif = tk.Button(popup_window_uptake, text = "Save Colors", command=save_colors2)
-    save_bt_dif.place(x=370, y=460)
+    save_bt_dif.place(x=725, y=330)
+    
+    x1 = 347
+    y1 = 360
+    x2 = 915
+    y2 = 495
+    
+    canvas.create_rectangle(x1, y1, x2, y2, outline="black", fill="")
+
+    
+    
+    
+    
+    def save_colors3():
+        try:
+            significance_cutoff = significance_entry.get()
+            significance_cutoff = float(significance_cutoff)
+        except:
+            tk.messagebox.showerror("Significance Cut-Off Error", "Please make sure significance cut-off is a retrievable value and try again")
+            popup_window_uptake.focus_set()
+            return
+        lcols = []
+        lcol_0 = lcol_entry_0.get()
+        lcols.append(lcol_0)
+        lcol_1 = lcol_entry_1.get()
+        lcols.append(lcol_1)
+        lcol_2 = lcol_entry_2.get()
+        lcols.append(lcol_2)
+        lcol_3 = lcol_entry_3.get()
+        lcols.append(lcol_3)
+        lcol_4 = lcol_entry_4.get()
+        lcols.append(lcol_4)
+        lcol_5 = lcol_entry_5.get()
+        lcols.append(lcol_5)
+        for lcol in lcols:
+            if is_valid_hexadecimal(lcol) == False:
+                tk.messagebox.showerror("Hex Color Error", "Please make sure at least every color except manual options are a valid hex color and try again")
+                popup_window_uptake.focus_set()
+                return
+        
+        lcol_6 = lcol_entry_6.get()
+        if is_valid_hexadecimal(lcol_6) == False:
+            lcol_6 = False
+        lcol_7 = lcol_entry_7.get()
+        if is_valid_hexadecimal(lcol_7) == False:
+            lcol_7 = False
+        
+        
+        json_data = {
+            "header": "Localized Difference Plot Colors",
+            "lcols": lcols,
+            "significance_cutoff": significance_cutoff,
+            "lcol_6": lcol_6,
+            "lcol_7": lcol_7
+        }
+        
+        
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".json",
+            initialdir="./Colors",
+            title="Save File",
+            initialfile="local_new_colors",
+            filetypes=[("JSON files", "*.json")]
+        )
+        if file_path:
+            with open(file_path, 'w') as f:
+                json.dump(json_data, f, indent=4)
+                title = os.path.basename(file_path)
+                tk.messagebox.showinfo("File Saved", f"File Saved as {title}")
+                
+                
+            uptake_file_names, dif_file_names, local_file_names = update_dir_lists()
+            update_color_comboboxes(uptake_file_names, dif_file_names, local_file_names)
+            popup_window_uptake.focus_set()
+    
+        else:
+            tk.messagebox.showerror("File Not Saved", "File was not saved")
+            popup_window_uptake.focus_set()
+    
+
+    tk.Label(popup_window_uptake, text="Create Custom Colors for Localized Difference Plots - Manual Options are Optional").place(x=370, y=362)
+    
+    tk.Label(popup_window_uptake, text="Manual").place(x=365, y=385)
+    tk.Label(popup_window_uptake, text="Option").place(x=366, y=405)
+    lcol_entry_6 = tk.Entry(popup_window_uptake, width=8)
+    lcol_entry_6.place(x=362, y=425)
+    
+    tk.Label(popup_window_uptake, text="Significant").place(x=430, y=385)
+    tk.Label(popup_window_uptake, text="Protection").place(x=430, y=405)
+    lcol_entry_2 = tk.Entry(popup_window_uptake, width=8)
+    lcol_entry_2.place(x=433, y=425)
+    
+    tk.Label(popup_window_uptake, text="Questionable").place(x=500, y=385)
+    tk.Label(popup_window_uptake, text="Protection").place(x=505, y=405)
+    lcol_entry_1 = tk.Entry(popup_window_uptake, width=8)
+    lcol_entry_1.place(x=507, y=425)
+    
+    tk.Label(popup_window_uptake, text="No").place(x=595, y=385)
+    tk.Label(popup_window_uptake, text="Difference").place(x=575, y=405)
+    lcol_entry_0 = tk.Entry(popup_window_uptake, width=8)
+    lcol_entry_0.place(x=577, y=425)
+    lcol_entry_0.insert(0, "F2F2F2")
+    
+    tk.Label(popup_window_uptake, text="Questionable").place(x=640, y=385)
+    tk.Label(popup_window_uptake, text="Deprotection").place(x=641, y=405)
+    lcol_entry_4 = tk.Entry(popup_window_uptake, width=8)
+    lcol_entry_4.place(x=650, y=425)
+    
+    tk.Label(popup_window_uptake, text="Significant").place(x=725, y=385)
+    tk.Label(popup_window_uptake, text="Deprotection").place(x=720, y=405)
+    lcol_entry_5 = tk.Entry(popup_window_uptake, width=8)
+    lcol_entry_5.place(x=730, y=425)
+    
+    tk.Label(popup_window_uptake, text="Manual").place(x=801, y=385)
+    tk.Label(popup_window_uptake, text="Option").place(x=802, y=405)
+    lcol_entry_7 = tk.Entry(popup_window_uptake, width=8)
+    lcol_entry_7.place(x=798, y=425)
+    
+    tk.Label(popup_window_uptake, text="No").place(x=877, y=385)
+    tk.Label(popup_window_uptake, text="Coverage").place(x=858, y=405)
+    lcol_entry_3 = tk.Entry(popup_window_uptake, width=8)
+    lcol_entry_3.place(x=859, y=425)
+    lcol_entry_3.insert(0, "FAE8D7")
+    
+    tk.Label(popup_window_uptake, text="Significance Cut-off (Da ~ 0.5 or decimal ~ 0.05):").place(x=360, y=455)
+    significance_entry = tk.Entry(popup_window_uptake, width=5)
+    significance_entry.place(x=630, y=456)
+    
+    save_bt_loc = tk.Button(popup_window_uptake, text = "Save Colors", command=save_colors3)
+    save_bt_loc.place(x=725, y=456)
+    
+    
+   
 
 
 
 
+def update_dir_lists():
+    folder_path = "./Colors"  # Path to the "Color Patterns" folder
+    file_names = os.listdir(folder_path)  # Get a list of file names in the folder
+    uptake_file_names = []
+    dif_file_names = []
+    local_file_names = []
+    for file_name in file_names:
+        with open("./Colors/" + file_name, 'r') as f:
+            json_data = json.load(f)
+            if json_data.get("header") == "Uptake Colors":
+                uptake_file_names.append(file_name)
+            elif json_data.get("header") == "Difference Colors": 
+                dif_file_names.append(file_name)
+            elif json_data.get("header") == "Localized Difference Plot Colors":
+                local_file_names.append(file_name)
+    return uptake_file_names, dif_file_names, local_file_names
 
-
-
-
-
-
-
-
+def update_color_comboboxes(uptake_file_names, dif_file_names, local_file_names):
+    global uptake_color_scheme_dropdown, difference_color_scheme_dropdown, localized_color_scheme_dropdown
+    uptake_color_scheme_dropdown['values'] = uptake_file_names
+    difference_color_scheme_dropdown['values'] = dif_file_names
+    localized_color_scheme_dropdown['values'] = local_file_names
 
 def create_format_box():
     format_title = tk.Label(window, text="Formatting Options")
@@ -1534,12 +1744,11 @@ def create_format_box():
     x2, y2 = 1170, 450
     canvas.create_rectangle(x1, y1, x2, y2, outline="black", fill="")
 
-
-
-    folder_path = "./Colors"  # Path to the "Color Patterns" folder
-    file_names = os.listdir(folder_path)  # Get a list of file names in the folder
-    global uptake_color_scheme_dropdown, difference_color_scheme_dropdown
-    uptake_color_scheme_dropdown = ttk.Combobox(window, values=file_names, width=17)
+    uptake_file_names, dif_file_names, local_file_names = update_dir_lists()
+        
+        
+    global uptake_color_scheme_dropdown, difference_color_scheme_dropdown, localized_color_scheme_dropdown
+    uptake_color_scheme_dropdown = ttk.Combobox(window, values=uptake_file_names, width=19)
     if exp_bt_on_c:
         uptake_color_scheme_dropdown.set("uptake_cor_default.json")
     if theo_bt_on_c:
@@ -1548,27 +1757,38 @@ def create_format_box():
     uptake_color_scheme_dropdown.place(x=1030, y=30)
     tk.Label(window, text="Uptake Colors: ").place(x=930, y=30)
     tk.Label(window, text="Difference Colors: ").place(x=930, y=60)
-    difference_color_scheme_dropdown = ttk.Combobox(window, values=file_names, width=17)
+    tk.Label(window, text="Localized Colors: ").place(x=930, y=90)
+    difference_color_scheme_dropdown = ttk.Combobox(window, values=dif_file_names, width=19)
     if exp_bt_on_c == True:
-        difference_color_scheme_dropdown.set("exp_dif_default.json")
+        difference_color_scheme_dropdown.set("dif_theo_default.json")
     if theo_bt_on_c == True:
-        difference_color_scheme_dropdown.set("theo_dif_default.json")
+        difference_color_scheme_dropdown.set("dif_theo_default.json")
     difference_color_scheme_dropdown.bind("<<ComboboxSelected>>")
     difference_color_scheme_dropdown.place(x=1030, y=60)
+    
+    localized_color_scheme_dropdown = ttk.Combobox(window, values=local_file_names, width=19)
+    if exp_bt_on_c:
+        localized_color_scheme_dropdown.set("local_theo_default.json")
+    if theo_bt_on_c:
+        localized_color_scheme_dropdown.set("local_theo_default.json")
+    localized_color_scheme_dropdown.bind("<<ComboboxSelected>>")
+    localized_color_scheme_dropdown.place(x=1030, y=90)
+    
+    
     create_colors = tk.Button(window, text="Create Custom Colors", command=create_custom_colors)
-    create_colors.place(x=980, y=90)
+    create_colors.place(x=980, y=120)
     chiclet_options_title = tk.Label(window, text="Chiclet Options")
-    chiclet_options_title.place(x=930, y=140)
+    chiclet_options_title.place(x=930, y=150)
     x1 = 930
     x2 = 1162
-    y = 164
+    y = 174
     canvas.create_line(x1, y, x2, y)
     pepgap_lb = tk.Label(window, text="Add Gaps if Pep in Only One State:")
-    pepgap_lb.place(x=925, y=170)
+    pepgap_lb.place(x=925, y=180)
     global white_var
     white_var = tk.IntVar(value=1)
     chk1 = tk.Checkbutton(window, text='', variable=white_var)
-    chk1.place(x=1140, y=170)
+    chk1.place(x=1140, y=180)
 
     global con_pep_height_enter, con_pep_width_enter, full_pep_height_enter, full_pep_width_enter
     full_pepmap_title = tk.Label(window, text="Full Peptide Map Options")
@@ -1645,7 +1865,7 @@ def create_run_box():
     difcond_bt.place(x=1340,y=120)
     uptake_plot_bt = tk.Button(window, text="Uptake Plots",bg="orange", fg="black", width=17, command=uptake_plot_on)
     uptake_plot_bt.place(x=1190, y=160)
-    heatmap_bt = tk.Button(window, text="Linear Map", bg="orange", fg="black", width=17, command=lambda: (heatmap_on(), difcond_on(), difmap_on()))
+    heatmap_bt = tk.Button(window, text="Localized Differences", bg="orange", fg="black", width=17, command=lambda: (heatmap_on(), difcond_on(), difmap_on()))
     heatmap_bt.place(x=1340, y=160)
     
     
@@ -2372,8 +2592,9 @@ def create_example_plot():
     picture_widget = picture.get_tk_widget()
     picture_widget.place(x=1065, y=455, width=420, height = 370)
     
+    
     save_uptakeplot_button = tk.Button(window, text="Save as PNG", command=lambda: save_figure(fig, startvalue, endvalue))
-    save_uptakeplot_button.place(x=1072, y=830)
+    save_uptakeplot_button.place(x=970, y=800)
     
 def save_figure(fig, startvalue, endvalue):
     figure_title = f"{startvalue}-{endvalue}"
@@ -2483,24 +2704,54 @@ def check_button_clicks2():
 
 
 def make_maxdic_dropdowns():
+    global vsb, maxdic_canvas, maxdic_frame
+    def onFrameConfigure(maxdic_canvas):
+        maxdic_canvas.configure(scrollregion=maxdic_canvas.bbox("all"))
+        
+    def remove_focus(event=None):
+        window.focus_set()  # Set focus to another widget
+        
+    try:
+        maxdic_canvas.destroy()
+    except:
+        pass
+    try:
+        maxdic_frame.destroy()
+    except:
+        pass
+    
     global maxdic, dropdowns, snum, dropdown_widgets, label_widgets
+    maxdic_canvas = tk.Canvas(window, borderwidth=0)
+    vsb = ttk.Scrollbar(window, orient="vertical", command=maxdic_canvas.yview)
+    maxdic_canvas.configure(yscrollcommand=vsb.set)
+    vsb.place(x=350, y=280, width=20, height=600)
+    maxdic_canvas.place(x=15, y=280, width=330, height=600)
+    
+    maxdic_frame = ttk.Frame(maxdic_canvas)
+    maxdic_canvas.create_window((0, 0), window=maxdic_frame, anchor="nw")
+    maxdic_frame.bind("<Configure>", lambda event, canvas=maxdic_canvas: onFrameConfigure(canvas))
+
+    
     snum = 0
     dropdown_widgets = []  # List to store dropdown widgets
     label_widgets = []  # List to store label widgets
     for state in states:
-        state_label = tk.Label(window, text=state + ":")
+        state_label = tk.Label(maxdic_frame, text=state + ":")
         font_size = 12
-        while state_label.winfo_reqwidth() > 150:
+        while state_label.winfo_reqwidth() < 138:
+            font_size = font_size+1
+            state_label.config(font=("Arial", font_size))
+        while state_label.winfo_reqwidth() > 138:
             font_size = font_size-1
             state_label.config(font=("Arial", font_size))
-        state_label.place(x= 10, y=(250+(25*snum)))
+        state_label.grid(row=snum, column=0)
         label_widgets.append(state_label)
 
         dropdown_var = tk.StringVar(value=state)  # Create a unique StringVar for each dropdown
-        dropdown = ttk.Combobox(window, values=state_options, width=28)
+        dropdown = ttk.Combobox(maxdic_frame, values=state_options, width=28)
         dropdown.set(dropdown_var.get())
-        dropdown.place(x=165, y=(250+(25*snum)))
-        dropdown.bind("<<ComboboxSelected>>")
+        dropdown.grid(row=snum, column=1)
+        dropdown.bind("<<ComboboxSelected>>", remove_focus)
         dropdown_widgets.append(dropdown)
 
         dropdowns[state] = dropdown  # Map the dropdown variable to the state
@@ -2574,39 +2825,91 @@ def state_save():
 
 
 
-
-
-
+def maxD_Da_dif_bt_on():
+    global maxD_Da_dif_on_c, maxD_dif_bt_list
+    maxD_Da_dif_on_c = True
+    maxD_Da_dif_bt = tk.Button(window, text="Corrected (Da)", fg="white", bg="green", width=13, command=lambda: [maxD_Da_dif_bt_off(), maxD_rfu_dif_bt_on()])
+    maxD_Da_dif_bt.place(x=250, y=223)
+    difference_color_scheme_dropdown.set("dif_theo_default.json")
+    localized_color_scheme_dropdown.set("local_theo_default.json")
+    maxD_dif_bt_list.append(maxD_Da_dif_bt)
+    
+def maxD_Da_dif_bt_off():
+    global maxD_Da_dif_on_c, maxD_dif_bt_list
+    maxD_Da_dif_on_c = False
+    maxD_Da_dif_bt = tk.Button(window, text="Corrected (Da)", fg="black", bg="orange", width=13, command=lambda: [maxD_Da_dif_bt_on(), maxD_rfu_dif_bt_off()])
+    maxD_Da_dif_bt.place(x=250, y=223)
+    maxD_dif_bt_list.append(maxD_Da_dif_bt)
+    
+def maxD_rfu_dif_bt_on():
+    global maxD_rfu_dif_on_c, maxD_Da_dif_bt
+    maxD_rfu_dif_on_c = True
+    maxD_rfu_dif_bt = tk.Button(window, text="Corrected (RFU)", fg="white", bg="green", width=13, command=lambda: [maxD_Da_dif_bt_on(), maxD_rfu_dif_bt_off()])
+    maxD_rfu_dif_bt.place(x=130, y=223)
+    difference_color_scheme_dropdown.set("dif_exp_default.json")
+    localized_color_scheme_dropdown.set("local_exp_default.json")
+    maxD_dif_bt_list.append(maxD_rfu_dif_bt)
+    
+def maxD_rfu_dif_bt_off():
+    global maxD_rfu_dif_on_c, maxD_rfu_dif_bt, maxD_dif_bt_list
+    maxD_rfu_dif_on_c = False
+    maxD_rfu_dif_bt = tk.Button(window, text="Corrected (RFU)", fg="black", bg="orange", width=13, command=lambda: [maxD_Da_dif_bt_off(), maxD_rfu_dif_bt_on()])
+    maxD_rfu_dif_bt.place(x=130, y=223)
+    maxD_dif_bt_list.append(maxD_rfu_dif_bt)
+    
 
 exp_bt_on_c = False
 theo_bt_on_c = False
 def exp_bt_on():
-    global exp_bt_on_c, maxD_label, custom_state_bt, exp_st_lb, maxD_peptides_lb, maxD_label_line, state_label_line
-    exp_bt2 = tk.Button(window, text="Experimental",bg="green",fg="white",command=lambda: [exp_bt_off(), theo_bt_on()])
-    exp_bt2.place(x=170, y=190)
+    global exp_bt_on_c, maxD_label, custom_state_bt, exp_st_lb, maxD_peptides_lb, maxD_label_line, state_label_line, choose_rfu_or_da_label, maxD_dif_bt_list, maxD_rfu_dif_on_c, maxD_Da_dif_on_c
+    
+    try:
+        for item in maxD_dif_bt_list:
+            item.destroy()
+    except:
+        pass
+    
+    exp_bt2 = tk.Button(window, text="Experimental (maxD)",bg="green",fg="white",command=lambda: [exp_bt_off(), theo_bt_on()])
+    exp_bt2.place(x=150, y=190)
     exp_bt_on_c = True
+    maxD_dif_bt_list = []
 
-
+    
     global maxdic, dropdowns
     maxdic = {}  # Initialize an empty dictionary
     dropdowns = {}  # Initialize an empty dictionary to store dropdown variables
 
-
-    exp_st_lb = tk.Label(window, text="State")
-    exp_st_lb.place(x=35, y=223)
+    exp_st_lb = tk.Label(window, text="Protein~State")
+    exp_st_lb.place(x=45, y=253)
     maxD_peptides_lb = tk.Label(window, text="maxD Peptide Extraction")
-    maxD_peptides_lb.place(x=170, y=223)
+    maxD_peptides_lb.place(x=175, y=253)
+    
     custom_state_bt = tk.Button(window, text="Custom State", bg="white", fg="black", command=create_custom_state)
     custom_state_bt.place(x=275, y=190)
+    
+    
+    choose_rfu_or_da_label = tk.Label(window, text="Show Differences as:")
+    choose_rfu_or_da_label.place(x=15, y=223)
+    
+    maxD_Da_dif_on_c = True
+    maxD_Da_dif_bt = tk.Button(window, text="Corrected (Da)", fg="white", bg="green", width=13, command=lambda: [maxD_Da_dif_bt_off(), maxD_rfu_dif_bt_on()])
+    maxD_Da_dif_bt.place(x=250, y=223)
+    maxD_dif_bt_list.append(maxD_Da_dif_bt)
+    
+    maxD_rfu_dif_on_c = False
+    maxD_rfu_dif_bt = tk.Button(window, text="Corrected (RFU)", fg="black", bg="orange", width=13, command=lambda: [maxD_Da_dif_bt_off(), maxD_rfu_dif_bt_on()])
+    maxD_rfu_dif_bt.place(x=130, y=223)
+    maxD_dif_bt_list.append(maxD_rfu_dif_bt)
+    
 
-    x1 = 15
-    y = 247
-    x2 = 130
+    x1 = 17
+    y = 277
+    x2 = 148
     state_label_line = canvas.create_line(x1, y, x2, y)
 
-    x1 = 165
-    y=247
-    x2 = 347
+    x1 = 160
+    y=277
+    x2 = 340
     maxD_label_line = canvas.create_line(x1, y, x2, y)
     
     check_button_clicks2()
@@ -2639,8 +2942,8 @@ def theo_bt_on():
                 pass
 
         
-    global theo_bt_on_c, be_entry, per_label, back_exchange_label, be_color_label
-    theo_bt2 = tk.Button(window, text="Theoretical",bg="green",fg="white",command=lambda: [theo_bt_off(), exp_bt_on()])
+    global theo_bt_on_c, be_entry, per_label, back_exchange_label, be_color_label, back_exchange_label
+    theo_bt2 = tk.Button(window, text="Calculated",bg="green",fg="white",command=lambda: [theo_bt_off(), exp_bt_on()])
     theo_bt2.place(x=50, y=190)
     theo_bt_on_c = True
     back_exchange_label = tk.Label(window, text="Correct for Back Exchange:")
@@ -2666,8 +2969,8 @@ def theo_bt_on():
 
 def exp_bt_off():
     global exp_bt_on_c
-    exp_bt1 = tk.Button(window, text="Experimental",bg="orange",fg="black",command=lambda: [theo_bt_off(), exp_bt_on()])
-    exp_bt1.place(x=170, y=190)
+    exp_bt1 = tk.Button(window, text="Experimental (maxD)",bg="orange",fg="black",command=lambda: [theo_bt_off(), exp_bt_on()])
+    exp_bt1.place(x=150, y=190)
     exp_bt_on_c = False
     global dropdown_widgets, label_widgets, custom_state_bt
     try:
@@ -2688,11 +2991,30 @@ def exp_bt_off():
         canvas.delete(state_label_line)
     except:
         pass
+    try:
+        choose_rfu_or_da_label.destroy()
+        for item in maxD_dif_bt_list:
+            item.destroy()
+    except:
+        pass
+    try:
+        vsb.destroy()
+    except:
+        pass
+    try:
+        maxdic_canvas.destroy()
+    except:
+        pass
+    try:
+        maxdic_frame.destroy()
+    except:
+        pass
+        
 
 
 def theo_bt_off():
     global theo_bt_on_c, be_entry, per_label, back_exchange_label
-    theo_bt1 = tk.Button(window, text="Theoretical",bg="orange",fg="black",command=lambda: [exp_bt_off(), theo_bt_on()])
+    theo_bt1 = tk.Button(window, text="Calculated",bg="orange",fg="black",command=lambda: [exp_bt_off(), theo_bt_on()])
     theo_bt1.place(x=50, y=190)
     theo_bt_on_c = False
     try:
@@ -3048,7 +3370,7 @@ def check_dif_reqs():
             title = "untitled"
         x = 2
         while title in dic_of_dif_list.keys():
-            if title.startswith(f"_{x-1}"):
+            if title.startswith(f"{x-1}_"):
                 title = title.removeprefix(f"{x-1}_")
             title = f"{x}_" + title 
             x += 1
@@ -3061,7 +3383,7 @@ def check_dif_reqs():
             title = "untitled"
         x = 2
         while title in dic_of_dif_list.keys():
-            if title.startswith(f"_{x-1}"):
+            if title.startswith(f"{x-1}_"):
                 title = title.removeprefix(f"{x-1}_")
             title = f"{x}_" + title 
             x += 1
@@ -3074,7 +3396,7 @@ def check_dif_reqs():
             title = "untitled"
         x = 2
         while title in dic_of_dif_list.keys():
-            if title.startswith(f"_{x-1}"):
+            if title.startswith(f"{x-1}_"):
                 title = title.removeprefix(f"{x-1}_")
             title = f"{x}_" + title 
             x += 1
@@ -3087,7 +3409,7 @@ def check_dif_reqs():
             title = "untitled"
         x = 2
         while title in dic_of_dif_list.keys():
-            if title.startswith(f"_{x-1}"):
+            if title.startswith(f"{x-1}_"):
                 title = title.removeprefix(f"{x-1}_")
             title = f"{x}_" + title 
             x += 1
@@ -3100,7 +3422,7 @@ def check_dif_reqs():
             title = "untitled"
         x = 2
         while title in dic_of_dif_list.keys():
-            if title.startswith(f"_{x-1}"):
+            if title.startswith(f"{x-1}_"):
                 title = title.removeprefix(f"{x-1}_")
             title = f"{x}_" + title 
             x += 1
@@ -3113,7 +3435,7 @@ def check_dif_reqs():
             title = "untitled"
         x = 2
         while title in dic_of_dif_list.keys():
-            if title.startswith(f"_{x-1}"):
+            if title.startswith(f"{x-1}_"):
                 title = title.removeprefix(f"{x-1}_")
             title = f"{x}_" + title 
             x += 1
@@ -3126,7 +3448,7 @@ def check_dif_reqs():
             title = "untitled"
         x = 2
         while title in dic_of_dif_list.keys():
-            if title.startswith(f"_{x-1}"):
+            if title.startswith(f"{x-1}_"):
                 title = title.removeprefix(f"{x-1}_")
             title = f"{x}_" + title 
             x += 1
@@ -3139,7 +3461,7 @@ def check_dif_reqs():
             title = "untitled"
         x = 2
         while title in dic_of_dif_list.keys():
-            if title.startswith(f"_{x-1}"):
+            if title.startswith(f"{x-1}_"):
                 title = title.removeprefix(f"{x-1}_")
             title = f"{x}_" + title 
             x += 1
@@ -3152,7 +3474,7 @@ def check_dif_reqs():
             title = "untitled"
         x = 2
         while title in dic_of_dif_list.keys():
-            if title.startswith(f"_{x-1}"):
+            if title.startswith(f"{x-1}_"):
                 title = title.removeprefix(f"{x-1}_")
             title = f"{x}_" + title 
             x += 1
@@ -3165,7 +3487,7 @@ def check_dif_reqs():
             title = "untitled"
         x = 2
         while title in dic_of_dif_list.keys():
-            if title.startswith(f"_{x-1}"):
+            if title.startswith(f"{x-1}_"):
                 title = title.removeprefix(f"{x-1}_")
             title = f"{x}_" + title 
             x += 1
@@ -3178,7 +3500,7 @@ def check_dif_reqs():
             title = "untitled"
         x = 2
         while title in dic_of_dif_list.keys():
-            if title.startswith(f"_{x-1}"):
+            if title.startswith(f"{x-1}_"):
                 title = title.removeprefix(f"{x-1}_")
             title = f"{x}_" + title 
             x += 1
@@ -3191,7 +3513,7 @@ def check_dif_reqs():
             title = "untitled"
         x = 2
         while title in dic_of_dif_list.keys():
-            if title.startswith(f"_{x-1}"):
+            if title.startswith(f"{x-1}_"):
                 title = title.removeprefix(f"{x-1}_")
             title = f"{x}_" + title 
             x += 1
@@ -3209,6 +3531,7 @@ def check_dif_reqs():
     for title in title_list:
         new_dic_of_dif_list[title[:20]] = pairlist[x]
         x=x+1
+    
 
 
 global comp_error_lab
@@ -3236,6 +3559,33 @@ def r_initialize():
         comp_error_lab.destroy()
     new_dic_of_dif_lists = {}
     check_dif_reqs()
+    
+    for key, value in new_dic_of_dif_list.items():
+        if value[0].split("~")[0] != value[1].split("~")[0]:
+            user_choice_diflist = tk.messagebox.askyesno("Potential Error in Difference States", "Potential Error in Difference States: One or more difference contains different proteins. This may cause issues. Do you wish to continue anyways?", default='no')
+            if user_choice_diflist:
+                continue
+            else:
+                return
+            
+    
+    if heatmap_bt_on:
+        if new_dic_of_dif_list == {}:
+            tk.messagebox.showerror("Difference Error", "There are no differences selected, you cannot run [Localized Differences]")
+            return
+    if cdif_bt_on:
+        if new_dic_of_dif_list == {}:
+            tk.messagebox.showerror("Difference Error", "There are no differences selected, you cannot run [Chiclet Difference]")
+            return
+    if difmap_bt_on:
+        if new_dic_of_dif_list == {}:
+            tk.messagebox.showerror("Difference Error", "There are no differences selected, you cannot run [Peptide Difference]")
+            return
+    if difcond_bt_on:
+        if new_dic_of_dif_list == {}:
+            tk.messagebox.showerror("Difference Error", "There are no differences selected, you cannot run [Condensed Difference]")
+            return
+    
 
 
 
@@ -3247,6 +3597,11 @@ def r_initialize():
     p = r_extract_difference_colors_from_JSON()
     if p is False:
         tk.messagebox.showerror("Color Error", "Could not extract difference colors")
+        return
+    
+    p = r_extract_localized_colors_from_JSON()
+    if p is False:
+        tk.messgabebox.showerror("Color Error", "Could not extract localized colors")
         return
     
     if difmap_bt_on == False and pepmap_bt_on == False and chic_bt_on == False and cdif_bt_on == False and condpeps_bt_on == False and difcond_bt_on == False and uptake_plot_bt_on == False and heatmap_bt_on == False:
@@ -3265,6 +3620,7 @@ def r_initialize():
 
     r_make_legend1()
     r_make_legend2()
+    r_make_legend3()
     create_example_plot()
     if uptake_plot_bt_on == True:
         create_example_plot()
@@ -3541,7 +3897,37 @@ def r_extract_difference_colors_from_JSON():
             run_bt.config(relief="raised")
             return False
         
-                
+def r_extract_localized_colors_from_JSON():
+    global comp_error_lab, lcol0, lcol1, lcol2, lcol3, lcol4, lcol5, lcol6, lcol7, future_linear_map_multiplier
+    with open("./Colors/" + localized_color_scheme_dropdown.get(), 'r') as f:
+        json_data = json.load(f)
+        if json_data.get("header") == "Localized Difference Plot Colors":
+            lcol_list = json_data.get("lcols", [])
+            future_linear_map_multiplier = json_data.get("significance_cutoff", 0)
+            lcol6 = json_data.get("lcol_6", False)
+            lcol7 = json_data.get("lcol_7", False)
+            if future_linear_map_multiplier == 0:
+                tk.messagebox.showerror("Invalid Color Scheme", f"Significance Cut-Off Value in {localized_color_scheme_dropdown.get()} is invalid")
+                return
+            
+            
+            lcol0 = lcol_list[0]
+            lcol1 = lcol_list[1]
+            lcol2 = lcol_list[2]
+            lcol3 = lcol_list[3]
+            lcol4 = lcol_list[4]
+            lcol5 = lcol_list[5]
+            if lcol7 == "False":
+                lcol7 = False
+            if lcol7 == "False":
+                lcol7 = False
+        
+        else:
+            comp_error_lab = tk.Label(window, text="Difference color selection is not compatible")
+            comp_error_lab.place(x=1190, y=230)
+            run_bt.config(state="normal")
+            run_bt.config(relief="raised")
+            return False
                 
                 
 def r_process_data():  
@@ -4109,7 +4495,6 @@ def r_process_data():
                 statedic_of_pepdic_cor[state] = pepdic_cor
                 statedic_of_sddic_cor[state] = sddic_cor
 
-
     if theo_bt_on_c == True:
         global back_exchange, be_label
         be = be_entry.get()
@@ -4496,13 +4881,14 @@ def r_make_legend1():
     ax.set_yticks([])
     fig.savefig('./RecentLegends/uptakelegend.png', dpi=300)
     plt.close()
-    #chaaa
-    if back_exchange == 0:
-        ws.cell(row=1, column=8, value="Values are not corrected for Back Exchange")
-        ws.cell(row=1, column=8).font = Font(size=50)
-    else:
-        ws.cell(row=1, column=8, value=f"Values Corrected for {back_exchange}% Back Exchange")
-        ws.cell(row=1, column=8).font = Font(size=50)
+    
+    try:
+        if back_exchange == 0:
+            ws.cell(row=1, column=8, value="Values are not corrected for Back Exchange")
+        else:
+            ws.cell(row=1, column=8, value=f"Values Corrected for {back_exchange}% Back Exchange")
+    except:
+        ws.cell(row=1, column=8, value=f"Values Corrected for maximally deuterated control")
             
     img = openpyxl.drawing.image.Image('./RecentLegends/uptakelegend.png')
     img.anchor = 'A7'
@@ -4515,7 +4901,7 @@ def r_make_legend2():
         color = assign_hex(d_col_1)
         square_1 = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
         ax.plot([xpos, xpos], [1, 1.3], color='black', linewidth=1)
-        if exp_bt_on_c:
+        if exp_bt_on_c == True and maxD_rfu_dif_on_c == True:
             ax.text(xpos, 1.35, round(d_val_1 * 100), ha='center', va='bottom', fontsize=12)
         else:
             ax.text(xpos, 1.35, d_val_1, ha='center', va='bottom', fontsize=12)
@@ -4525,7 +4911,7 @@ def r_make_legend2():
         color = assign_hex(d_col_2)
         square_2 = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
         ax.plot([xpos, xpos], [1, 1.3], color='black', linewidth=1)
-        if exp_bt_on_c:
+        if exp_bt_on_c == True and maxD_rfu_dif_on_c == True:
             ax.text(xpos, 1.35, round(d_val_2 * 100), ha='center', va='bottom', fontsize=12)
         else:
             ax.text(xpos, 1.35, d_val_2, ha='center', va='bottom', fontsize=12)
@@ -4535,7 +4921,7 @@ def r_make_legend2():
         color = assign_hex(d_col_3)
         square_3 = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
         ax.plot([xpos, xpos], [1, 1.3], color='black', linewidth=1)
-        if exp_bt_on_c:
+        if exp_bt_on_c == True and maxD_rfu_dif_on_c == True:
             ax.text(xpos, 1.35, round(d_val_3 * 100), ha='center', va='bottom', fontsize=12)
         else:
             ax.text(xpos, 1.35, d_val_3, ha='center', va='bottom', fontsize=12)
@@ -4545,7 +4931,7 @@ def r_make_legend2():
         color = assign_hex(d_col_4)
         square_4 = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
         ax.plot([xpos, xpos], [1, 1.3], color='black', linewidth=1)
-        if exp_bt_on_c:
+        if exp_bt_on_c == True and maxD_rfu_dif_on_c == True:
             ax.text(xpos, 1.35, round(d_val_4 * 100), ha='center', va='bottom', fontsize=12)
         else:
             ax.text(xpos, 1.35, d_val_4, ha='center', va='bottom', fontsize=12)
@@ -4555,7 +4941,7 @@ def r_make_legend2():
         color = assign_hex(d_col_5)
         square_5 = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
         ax.plot([xpos, xpos], [1, 1.3], color='black', linewidth=1)
-        if exp_bt_on_c:
+        if exp_bt_on_c == True and maxD_rfu_dif_on_c == True:
             ax.text(xpos, 1.35, round(d_val_5 * 100), ha='center', va='bottom', fontsize=12)
         else:
             ax.text(xpos, 1.35, d_val_5, ha='center', va='bottom', fontsize=12)
@@ -4573,7 +4959,7 @@ def r_make_legend2():
     xpos -= 1
     ax.add_patch(square_7)
     if p_col_length >= 5:
-        if exp_bt_on_c:
+        if exp_bt_on_c == True and maxD_rfu_dif_on_c == True:
             ax.text(xpos + 1, 1.35, round(p_val_5 * 100), ha='center', va='bottom', fontsize=12)
         else:
             ax.text(xpos + 1, 1.35, p_val_5, ha='center', va='bottom', fontsize=12)
@@ -4583,7 +4969,7 @@ def r_make_legend2():
         xpos -= 1
         ax.add_patch(square_8)
     if p_col_length >= 4:
-        if exp_bt_on_c:
+        if exp_bt_on_c == True and maxD_rfu_dif_on_c == True:
             ax.text(xpos + 1, 1.35, round(p_val_4 * 100), ha='center', va='bottom', fontsize=12)
         else:
             ax.text(xpos + 1, 1.35, p_val_4, ha='center', va='bottom', fontsize=12)
@@ -4593,7 +4979,7 @@ def r_make_legend2():
         xpos -= 1
         ax.add_patch(square_9)
     if p_col_length >= 3:
-        if exp_bt_on_c:
+        if exp_bt_on_c == True and maxD_rfu_dif_on_c == True:
             ax.text(xpos + 1, 1.35, round(p_val_3 * 100), ha='center', va='bottom', fontsize=12)
         else:
             ax.text(xpos + 1, 1.35, p_val_3, ha='center', va='bottom', fontsize=12)
@@ -4603,7 +4989,7 @@ def r_make_legend2():
         xpos -= 1
         ax.add_patch(square_10)
     if p_col_length >= 2:
-        if exp_bt_on_c:
+        if exp_bt_on_c == True and maxD_rfu_dif_on_c == True:
             ax.text(xpos + 1, 1.35, round(p_val_2 * 100), ha='center', va='bottom', fontsize=12)
         else:
             ax.text(xpos + 1, 1.35, p_val_2, ha='center', va='bottom', fontsize=12)
@@ -4613,7 +4999,7 @@ def r_make_legend2():
         xpos -= 1
         ax.add_patch(square_11)
     if p_col_length >= 1:
-        if exp_bt_on_c:
+        if exp_bt_on_c == True and maxD_rfu_dif_on_c == True:
             ax.text(xpos + 1, 1.35, round(p_val_1 * 100), ha='center', va='bottom', fontsize=12)
         else:
             ax.text(xpos + 1, 1.35, p_val_1, ha='center', va='bottom', fontsize=12)
@@ -4644,7 +5030,140 @@ def r_make_legend2():
     ws.add_image(img)
 
 
+def r_make_legend3():
+    if lcol6 is not False and lcol7 is not False:
+        color_mapping = {
+        0: "#" + lcol0,
+        1: "#" + lcol1,
+        2: "#" + lcol2,
+        3: "#" + lcol3,
+        4: "#" + lcol4,
+        5: "#" + lcol5,
+        6: "#" + lcol6,
+        7: "#" + lcol7,
+        8: "#FFFFFF"
+        }
 
+        # Create a figure and axis
+        fig, ax = plt.subplots(figsize=(6, 2))
+
+        xpos = 0
+        for n in [6, 2, 1, 0, 4, 5, 7]:
+            color = color_mapping[n]
+            square = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
+            ax.plot([xpos+0.5, xpos+0.5], [1, 1.3], color='black', linewidth=1)
+            xpos += 1
+            ax.add_patch(square)
+
+        xpos += 1
+        color = color_mapping[3]
+        square = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
+        ax.plot([xpos+0.5, xpos+0.5], [1, 1.3], color='black', linewidth=1)
+        ax.add_patch(square)
+        
+    elif lcol6 is not False and lcol7 is False:
+        color_mapping = {
+        0: "#" + lcol0,
+        1: "#" + lcol1,
+        2: "#" + lcol2,
+        3: "#" + lcol3,
+        4: "#" + lcol4,
+        5: "#" + lcol5,
+        6: "#" + lcol6,
+        8: "#FFFFFF"
+        }
+
+        # Create a figure and axis
+        fig, ax = plt.subplots(figsize=(6, 2))
+
+        xpos = 0
+        for n in [6, 2, 1, 0, 4, 5]:
+            color = color_mapping[n]
+            square = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
+            ax.plot([xpos+0.5, xpos+0.5], [1, 1.3], color='black', linewidth=1)
+            xpos += 1
+            ax.add_patch(square)
+
+        xpos += 1
+        color = color_mapping[3]
+        square = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
+        ax.plot([xpos+0.5, xpos+0.5], [1, 1.3], color='black', linewidth=1)
+        ax.add_patch(square)
+        
+    elif lcol6 is False and lcol7 is not False:
+        color_mapping = {
+        0: "#" + lcol0,
+        1: "#" + lcol1,
+        2: "#" + lcol2,
+        3: "#" + lcol3,
+        4: "#" + lcol4,
+        5: "#" + lcol5,
+        7: "#" + lcol7,
+        8: "#FFFFFF"
+        }
+
+        # Create a figure and axis
+        fig, ax = plt.subplots(figsize=(6, 2))
+
+        xpos = 0
+        for n in [2, 1, 0, 4, 5, 7]:
+            color = color_mapping[n]
+            square = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
+            ax.plot([xpos+0.5, xpos+0.5], [1, 1.3], color='black', linewidth=1)
+            xpos += 1
+            ax.add_patch(square)
+
+        xpos += 1
+        color = color_mapping[3]
+        square = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
+        ax.plot([xpos+0.5, xpos+0.5], [1, 1.3], color='black', linewidth=1)
+        ax.add_patch(square)
+        
+    if lcol6 is False and lcol7 is False:
+        color_mapping = {
+        0: "#" + lcol0,
+        1: "#" + lcol1,
+        2: "#" + lcol2,
+        3: "#" + lcol3,
+        4: "#" + lcol4,
+        5: "#" + lcol5,
+        8: "#FFFFFF"
+        }
+
+        # Create a figure and axis
+        fig, ax = plt.subplots(figsize=(6, 2))
+
+        xpos = 0
+        for n in [2, 1, 0, 4, 5]:
+            color = color_mapping[n]
+            square = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
+            ax.plot([xpos+0.5, xpos+0.5], [1, 1.3], color='black', linewidth=1)
+            xpos += 1
+            ax.add_patch(square)
+
+        xpos += 1
+        color = color_mapping[3]
+        square = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
+        ax.plot([xpos+0.5, xpos+0.5], [1, 1.3], color='black', linewidth=1)
+        ax.add_patch(square)
+    
+    ax.spines['top'].set_visible(False)
+    ax.spines['bottom'].set_visible(False)
+    ax.spines['left'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+
+    ax.set_aspect('equal')
+    ax.set_xticks([])
+    ax.set_yticks([])
+    
+
+    
+    fig.savefig('./RecentLegends/linear_map_scale.png', dpi=300)
+    
+    ws = wb['Figure Legends']
+    img = openpyxl.drawing.image.Image('./RecentLegends/linear_map_scale.png')
+    img.anchor = 'A158'
+    ws.add_image(img)
 
 def assign_hex(col):
     color = "#" + col
@@ -4897,10 +5416,10 @@ def r_difmaps():
                     startvalues = pro_peptide_starts.get((protein_one, peptide), None)
                     startvalue= int(startvalues[0]) - seq_start[first]
                     endvalues = pro_peptide_ends.get((protein_one, peptide), None)
-                    #cheese: edit here if peptides with the same sequence and different startvalues should not be compared
                     endvalue = int(endvalues[0]) - seq_start[first]
                     peptide_length = len(peptide)
-                    if exp_bt_on_c == True:
+                    
+                    if exp_bt_on_c == True and maxD_rfu_dif_on_c == True:
                         up1 = None
                         up2 = None
                         diftake = None
@@ -4919,8 +5438,29 @@ def r_difmaps():
 
                         except:
                             pass
+                    
+                    if exp_bt_on_c == True and maxD_Da_dif_on_c == True:
+                        up1 = None
+                        up2 = None
+                        diftake = None
 
-                    if theo_bt_on_c == True:
+                        try:
+                            for up, tp in statedic_of_pepdic_cor[first][peptide]:
+                                if tp == timepoint:
+                                    up1 = up
+                            for up, tp in statedic_of_pepdic_cor[second][peptide]:
+                                if tp == timepoint:
+                                    up2 = up
+                            if up1 is not None and up2 is not None and up1 != -99999 and up2 != -99999:
+                                max_theo = get_max_theo(peptide)
+                                diftake = max_theo * (up1 - up2)
+                            elif up1 is not None and up2 is not None:
+                                diftake = -99999
+
+                        except:
+                            pass
+                    
+                    if theo_bt_on_c == True and back_exchange == 0:
                         up1 = None
                         up2 = None
                         diftake = None
@@ -4933,6 +5473,25 @@ def r_difmaps():
                                     up2 = up
                             if up1 is not None and up2 is not None and up1 != -99999 and up2 != -99999:
                                 diftake = up1 - up2
+                            elif up1 is not None and up2 is not None:
+                                diftake = -99999
+                        except:
+                            pass
+                        
+                    if theo_bt_on_c == True and back_exchange != 0:
+                        up1 = None
+                        up2 = None
+                        diftake = None
+                        try:
+                            for up, tp in statedic_of_pepdic_cor[first][peptide]:
+                                if tp == timepoint:
+                                    up1 = up
+                            for up, tp in statedic_of_pepdic_cor[second][peptide]:
+                                if tp == timepoint:
+                                    up2 = up
+                            max_theo = get_max_theo(peptide)
+                            if up1 is not None and up2 is not None and up1 != -99999 and up2 != -99999:
+                                diftake = max_theo * (up1 - up2)
                             elif up1 is not None and up2 is not None:
                                 diftake = -99999
                         except:
@@ -5324,21 +5883,41 @@ def r_chicdif():
                     if timepoint in s_timepoints[second]:
                         if timepoint == 0:
                             tnum = tnum + 1
-                            continue
-                        if exp_bt_on_c:
+                            continue 
+                        if exp_bt_on_c and maxD_rfu_dif_on_c == True:
                             if statedic_of_pepdic_cor[first][peptide][tnum][0] != -99999 and statedic_of_pepdic_cor[second][peptide][tnum][0] != -99999:
                                 ws.cell(row=3+pepnum, column=plot_start+3+tnum, value=statedic_of_pepdic_cor[first][peptide][tnum][0] - statedic_of_pepdic_cor[second][peptide][tnum][0])
                                 tnum = tnum + 1
                             else:
                                 ws.cell(row=3+pepnum, column=plot_start+3+tnum, value = -99999)
                                 tnum = tnum + 1
-                        if theo_bt_on_c:
+                                
+                        if exp_bt_on_c and maxD_Da_dif_on_c == True:
+                            if statedic_of_pepdic_cor[first][peptide][tnum][0] != -99999 and statedic_of_pepdic_cor[second][peptide][tnum][0] != -99999:
+                                max_theo = get_max_theo(peptide)
+                                ws.cell(row=3+pepnum, column=plot_start+3+tnum, value=max_theo*(statedic_of_pepdic_cor[first][peptide][tnum][0] - statedic_of_pepdic_cor[second][peptide][tnum][0]))
+                                tnum = tnum + 1
+                            else:
+                                ws.cell(row=3+pepnum, column=plot_start+3+tnum, value = -99999)
+                                tnum = tnum + 1
+                                
+                        if theo_bt_on_c and back_exchange == 0:
                             if statedic_of_pepdic_raw2[first][peptide][tnum][0] != -99999 and statedic_of_pepdic_raw2[second][peptide][tnum][0] != -99999:
                                 ws.cell(row=3+pepnum, column=plot_start+3+tnum, value=statedic_of_pepdic_raw2[first][peptide][tnum][0] - statedic_of_pepdic_raw2[second][peptide][tnum][0])
                                 tnum = tnum + 1
                             else:
                                 ws.cell(row=3+pepnum, column=plot_start+3+tnum, value = -99999)
                                 tnum = tnum + 1
+                                
+                        if theo_bt_on_c and back_exchange != 0:
+                            if statedic_of_pepdic_cor[first][peptide][tnum][0] != -99999 and statedic_of_pepdic_cor[second][peptide][tnum][0] != -99999:
+                                max_theo = get_max_theo(peptide)
+                                ws.cell(row=3+pepnum, column=plot_start+3+tnum, value=max_theo*(statedic_of_pepdic_cor[first][peptide][tnum][0] - statedic_of_pepdic_cor[second][peptide][tnum][0]))
+                                tnum = tnum + 1
+                            else:
+                                ws.cell(row=3+pepnum, column=plot_start+3+tnum, value = -99999)
+                                tnum = tnum + 1
+                                
                 ch1 = False
                 ch2 = False
                 try:
@@ -5790,7 +6369,6 @@ def r_difcond():
                     startrow = ws.max_row +5
                     endrow = ws.max_row + 250
                 for peptide in sorted_peptides_first:
-                    #cheese: same things here for different proteins
                     if peptide in sorted_peptides_second:
                         startvalues = pro_peptide_starts.get((protein_one, peptide), None)
                         startvalue= int(startvalues[0]) - seq_start[first]
@@ -5798,7 +6376,7 @@ def r_difcond():
                         endvalue = int(endvalues[0]) - seq_start[first]
                         peptide_length = len(peptide)
                         diftake = None
-                        if exp_bt_on_c == True:
+                        if exp_bt_on_c == True and maxD_rfu_dif_on_c == True:
                             up1 = None
                             up2 = None
                             diftake = None
@@ -5835,8 +6413,48 @@ def r_difcond():
                                     diftake_SD = -99999
                             except:
                                 diftake_SD = -99999
+                                
+                        if exp_bt_on_c == True and maxD_Da_dif_on_c == True:
+                            up1 = None
+                            up2 = None
+                            diftake = None
 
-                        if theo_bt_on_c == True:
+                            try:
+                                for up, tp in statedic_of_pepdic_cor[first][peptide]:
+                                    if tp == timepoint:
+                                        up1 = up
+                                for up, tp in statedic_of_pepdic_cor[second][peptide]:
+                                    if tp == timepoint:
+                                        up2 = up
+                                if up1 is not None and up2 is not None and up1 != -99999 and up2 != -99999:
+                                    max_theo = get_max_theo(peptide)
+                                    diftake = max_theo * (up1 - up2)
+                                elif up1 is not None and up2 is not None:
+                                    diftake = -99999
+
+                            except:
+                                pass
+
+                            try:
+                                SD1 = None
+                                SD2 = None
+                                diftake_SD = None
+                                for sd, tp in statedic_of_sddic_cor[first][peptide]:
+                                    if tp == timepoint:
+                                        SD1 = sd
+                                for sd, tp in statedic_of_sddic_cor[second][peptide]:
+                                    if tp == timepoint:
+                                        SD2 = sd
+                                if SD1 is not None and SD2 is not None and SD1 != -99999 and SD2 != -99999:
+                                    SDs = np.array([SD1, SD2])
+                                    diftake_SD = np.sqrt(np.sum(SDs ** 2))
+                                    diftake_SD = diftake_SD * max_theo
+                                elif SD1 is not None and SD2 is not None:
+                                    diftake_SD = -99999
+                            except:
+                                diftake_SD = -99999
+
+                        if theo_bt_on_c == True and back_exchange == 0:
                             up1 = None
                             up2 = None
                             diftake = None
@@ -5871,6 +6489,45 @@ def r_difcond():
                                     diftake_SD = -99999
                             except:
                                 diftake_SD = -99999
+                                
+                        if theo_bt_on_c == True and back_exchange != 0:
+                            up1 = None
+                            up2 = None
+                            diftake = None
+                            try:
+                                for up, tp in statedic_of_pepdic_cor[first][peptide]:
+                                    if tp == timepoint:
+                                        up1 = up
+                                for up, tp in statedic_of_pepdic_cor[second][peptide]:
+                                    if tp == timepoint:
+                                        up2 = up
+                                max_theo = get_max_theo(peptide)
+                                if up1 is not None and up2 is not None and up1 != -99999 and up2 != -99999:
+                                    diftake = max_theo * (up1 - up2)
+                                elif up1 is not None and up2 is not None:
+                                    diftake = -99999
+                            except:
+                                pass
+
+                            try:
+                                SD1 = None
+                                SD2 = None
+                                diftake_SD = None
+                                for sd, tp in statedic_of_sddic_cor[first][peptide]:
+                                    if tp == timepoint:
+                                        SD1 = sd
+                                for sd, tp in statedic_of_sddic_cor[second][peptide]:
+                                    if tp == timepoint:
+                                        SD2 = sd
+                                max_theo = get_max_theo(peptide)
+                                if SD1 is not None and SD2 is not None and SD1 != -99999 and SD2 != -99999:
+                                    SDs = np.array([SD1, SD2])
+                                    diftake_SD = np.sqrt(np.sum(SDs ** 2))
+                                    diftake_SD = diftake_SD * max_theo
+                                elif SD1 is not None and SD2 is not None:
+                                    diftake_SD = -99999
+                            except:
+                                diftake_SD = -99999
 
 
                         if diftake is not None:
@@ -5895,56 +6552,55 @@ def r_difcond():
                                              bottom=Side(border_style='thin', color='FF000000'))
                                     middle = int((startvalue + 1 + endvalue + 1)/2)
 
-
+                                    
+                                    
                                     if sd_checkvar.get() == 0:
-                                        #if len(peptide) == 6:
-                                            #print(peptide)
-                                        if exp_bt_on_c:
+                                        if exp_bt_on_c == True and maxD_rfu_dif_on_c == True:
                                             row[middle-1].value = round(diftake * 100, 2)
                                             row[middle-1].number_format = "0.00"
                                             row[middle-1].alignment = Alignment(horizontal='center')
 
 
-                                        if theo_bt_on_c:
+                                        if theo_bt_on_c == True or maxD_Da_dif_on_c == True:
                                             row[middle-1].value = round(diftake, 2)
                                             row[middle-1].number_format = "0.00"
                                             row[middle-1].alignment = Alignment(horizontal='center')
                                     else:
                                         if len(peptide) > 6:
                                             if diftake_SD != -99999 and diftake_SD != 0 and diftake_SD != "-99999" and diftake_SD != "0":
-                                                if exp_bt_on_c:
+                                                if exp_bt_on_c == True and maxD_rfu_dif_on_c == True:
                                                     if (str(diftake).startswith("-") and len(str(round(diftake * 100))) == 2) or len(str(round(diftake * 100))) == 1:
-                                                        row[middle-2].value = str(round(diftake * 100, 1)) + " " + "\u00B1" + str(round(diftake_SD * 100, 1))
+                                                        row[middle-2].value = str(round(diftake * 100)) + " " + "\u00B1" + str(round(diftake_SD * 100))
                                                     else:
                                                         row[middle-2].value = str(round(diftake * 100)) + " " + "\u00B1" + str(round(diftake_SD * 100))
                                                         row[middle-2].alignment = Alignment(horizontal='center')
-                                                if theo_bt_on_c:
+                                                else:
                                                     if (str(diftake).startswith("-") and len(str(round(diftake))) == 2) or len(str(round(diftake))) == 1:
                                                         row[middle-2].value = str(round(diftake, 1)) + " " + "\u00B1" + str(round(diftake_SD, 1))
                                                     else:
                                                         row[middle-2].value = str(round(diftake)) + " " + "\u00B1" + str(round(diftake_SD))
                                                     row[middle-2].alignment = Alignment(horizontal='center')
                                             else:
-                                                if exp_bt_on_c:
+                                                if exp_bt_on_c == True and maxD_rfu_dif_on_c == True:
                                                     row[middle-2].value = round(diftake * 100, 1)
-                                                if theo_bt_on_c:
+                                                else:
                                                     row[middle-2].value = round(diftake, 1)
                                                 row[middle-2].alignment = Alignment(horizontal='center')
 
                                         elif len(peptide) == 6:
                                             if diftake_SD != -99999 and diftake_SD != 0 and diftake_SD != "-99999" and diftake_SD != "0":
-                                                if exp_bt_on_c:
+                                                if exp_bt_on_c == True and maxD_rfu_dif_on_c == True:
                                                     row[middle-1].value = str(round(diftake * 100)) + " " + "\u00B1" + str(round(diftake_SD * 100))
-                                                if theo_bt_on_c:
+                                                else:
                                                     if (str(diftake).startswith("-") and len(str(round(diftake))) == 2) or len(str(round(diftake))) == 1:
-                                                        row[middle-1].value = str(round(diftake)) + " " + "\u00B1" + str(round(diftake_SD))
+                                                        row[middle-1].value = str(round(diftake, 1)) + " " + "\u00B1" + str(round(diftake_SD, 1))
                                                     else:
-                                                        row[middle-1].value = str(round(diftake)) + " " + "\u00B1" + str(round(diftake_SD))
+                                                        row[middle-1].value = str(round(diftake, 1)) + " " + "\u00B1" + str(round(diftake_SD, 1))
                                                     row[middle-1].alignment = Alignment(horizontal='center')
                                             else:
-                                                if exp_bt_on_c:
-                                                    row[middle-1].value = round(diftake * 100)
-                                                if theo_bt_on_c:
+                                                if exp_bt_on_c == True and maxD_rfu_dif_on_c == True:
+                                                    row[middle-1].value = round(diftake * 100, 1)
+                                                else:
                                                     row[middle-1].value = round(diftake, 1)
                                                 row[middle-1].alignment = Alignment(horizontal='center')
 
@@ -6012,12 +6668,12 @@ def r_difcond():
                                     row[middle-c].font = font
 
                                     if sd_checkvar.get() == 0:
-                                        if exp_bt_on_c:
+                                        if exp_bt_on_c == True and maxD_rfu_dif_on_c == True:
                                             ws.merge_cells(start_row=row[middle-1].row, start_column=row[middle-1].column, end_row=row[middle+2].row, end_column=row[middle+2].column)
                                             middle_cell_reference = row[middle-1].coordinate
                                             cell_reference_list.append(middle_cell_reference)
 
-                                        if theo_bt_on_c:
+                                        else:
                                             ws.merge_cells(start_row=row[middle-1].row, start_column=row[middle-1].column, end_row=row[middle+2].row, end_column=row[middle+2].column)
                                             middle_cell_reference = row[middle-1].coordinate
                                             cell_reference_list.append(middle_cell_reference)
@@ -6212,18 +6868,8 @@ def r_heat_map():
         if sheet_name.endswith("_dif"):
             sheet = wb[sheet_name]
             tp_starts = []
-            if d_col_length >= 5:
-                significant_difference = d_val_5
-            elif d_col_length >= 4:
-                significant_difference = d_val_4
-            elif d_col_length >= 3:
-                significant_difference = d_val_3
-            elif d_col_length >= 2:
-                significant_difference = d_val_2
-            elif d_col_length >= 1:
-                significant_difference = d_val_1
             
-            linear_map_multiplier = 0.5/significant_difference
+            linear_map_multiplier = 0.5/future_linear_map_multiplier
             
             for i, row in enumerate(sheet.iter_rows(values_only=True)):
                 if row[0] != None and row[0] != "0" and row[0] != 0:
@@ -6409,7 +7055,15 @@ def r_heat_map():
     atexit.register(os.remove, temp_file_path_linearmap)
     
     test_data, test_res = [], []
-    X_data, X_complement, max_i, statename_dic = make_X_data('temp_excel_file_linearmap.xlsx', test_data, test_res, 'Test Output Data.xlsx') 
+    try:
+        X_data, X_complement, max_i, statename_dic = make_X_data('temp_excel_file_linearmap.xlsx', test_data, test_res, 'Test Output Data.xlsx')
+    except IndexError as e: 
+        tk.messagebox.showerror("Localized Difference Plot Error", "No Data Found. Please make sure difference requests contain the same proteins.")
+        return
+    except Exception as e:
+        tk.messagebox.showerror("Localized Difference Plot Error", f"An Unexpected Error Occured: {e}")
+        return
+        
     lm_X_data_dic = {}
     
     j = 0
@@ -6719,7 +7373,7 @@ def r_uptake_plots():
 def save_wb():
     global temp_file_path_excel2
     wb.remove(wb['Sheet'])
-
+    
     def r_make_pretty_linearmap():
         for sheet_name in wb.sheetnames:
             if sheet_name.endswith("_colprdc"):
@@ -6736,48 +7390,48 @@ def save_wb():
                     row_data = [""] + row_data
                     target_sheet.append(row_data)
                     target_sheet.append([])
-                for row in target_sheet.iter_rows():
-                    if row[1].value is None:
-                        for cell in row:
-                            cell.border = Border()
-                            cell.fill = PatternFill(start_color="FFFFFFFF", end_color="FFFFFFFF", fill_type='solid')
-                        continue
-                    for i, cell in enumerate(row):
-                        if cell.value is None or cell.value == "":
-                            continue
-                        cell_v = cell.value
-                        if cell_v == 1:
-                            fill = PatternFill(start_color=f"{globals().get(f'p_col_{p_col_length}')}", end_color=f"{globals().get(f'p_col_{p_col_length}')}", fill_type='solid')
-                        if cell_v == 2:
-                            fill = PatternFill(start_color=f"{globals().get(f'p_col_{p_col_length-1}')}", end_color=f"{globals().get(f'p_col_{p_col_length-1}')}", fill_type='solid')
-                        if cell_v == 4:
-                            fill = PatternFill(start_color=f"{globals().get(f'd_col_{d_col_length}')}", end_color=f"{globals().get(f'd_col_{d_col_length}')}", fill_type='solid')
-                        if cell_v == 5:
-                            fill = PatternFill(start_color=f"{globals().get(f'd_col_{d_col_length-1}')}", end_color=f"{globals().get(f'd_col_{d_col_length-1}')}", fill_type='solid')
-                        if cell_v == 3:
-                            fill = PatternFill(start_color=b_col_abs, end_color=b_col_abs, fill_type='solid')
-                        if cell_v == 0:
-                            fill = PatternFill(start_color=d_col_gtz, end_color=d_col_gtz, fill_type='solid')
-                        cell.fill = fill
-                        
-                        if i == 0:
-                            pass
-                        
-                        elif i == 1:
-                            cell.border = Border(top=Side(border_style='thin', color='FF000000'),
-                                    bottom=Side(border_style='thin', color='FF000000'),
-                                    left=Side(border_style='thin', color='FF000000'))
-                        elif i == (len(row) - 1):
-                            cell.border = Border(top=Side(border_style='thin', color='FF000000'),
-                                    bottom=Side(border_style='thin', color='FF000000'),
-                                    right=Side(border_style='thin', color='FF000000'))
-                        else:
-                            cell.border = Border(top=Side(border_style='thin', color='FF000000'),
-                                    bottom=Side(border_style='thin', color='FF000000'))
-                        cell.number_format = ';;;'
+#                for row in target_sheet.iter_rows():
+#                    if row[1].value is None:
+#                        for cell in row:
+#                            cell.border = Border()
+#                            cell.fill = PatternFill(start_color="FFFFFFFF", end_color="FFFFFFFF", fill_type='solid')
+#                        continue
+#                    for i, cell in enumerate(row):
+#                        if cell.value is None or cell.value == "":
+#                            continue
+#                        cell_v = cell.value
+#                        if cell_v == 1:
+#                            fill = PatternFill(start_color=f"{globals().get(f'p_col_{p_col_length}')}", end_color=f"{globals().get(f'p_col_{p_col_length}')}", fill_type='solid')
+#                        if cell_v == 2:
+#                            fill = PatternFill(start_color=f"{globals().get(f'p_col_{p_col_length-1}')}", end_color=f"{globals().get(f'p_col_{p_col_length-1}')}", fill_type='solid')
+#                        if cell_v == 4:
+#                            fill = PatternFill(start_color=f"{globals().get(f'd_col_{d_col_length}')}", end_color=f"{globals().get(f'd_col_{d_col_length}')}", fill_type='solid')
+#                        if cell_v == 5:
+#                            fill = PatternFill(start_color=f"{globals().get(f'd_col_{d_col_length-1}')}", end_color=f"{globals().get(f'd_col_{d_col_length-1}')}", fill_type='solid')
+#                        if cell_v == 3:
+#                            fill = PatternFill(start_color=b_col_abs, end_color=b_col_abs, fill_type='solid')
+#                        if cell_v == 0:
+#                            fill = PatternFill(start_color=d_col_gtz, end_color=d_col_gtz, fill_type='solid')
+#                        cell.fill = fill
+#                        
+#                        if i == 0:
+#                            pass
+#                        
+#                        elif i == 1:
+#                            cell.border = Border(top=Side(border_style='thin', color='FF000000'),
+#                                    bottom=Side(border_style='thin', color='FF000000'),
+#                                    left=Side(border_style='thin', color='FF000000'))
+#                        elif i == (len(row) - 1):
+#                            cell.border = Border(top=Side(border_style='thin', color='FF000000'),
+#                                    bottom=Side(border_style='thin', color='FF000000'),
+#                                    right=Side(border_style='thin', color='FF000000'))
+#                        else:
+#                            cell.border = Border(top=Side(border_style='thin', color='FF000000'),
+#                                    bottom=Side(border_style='thin', color='FF000000'))
+#                        cell.number_format = ';;;'
            
         white_fill = PatternFill(start_color="FFFFFFFF", end_color="FFFFFFFF", fill_type='solid')
-        target_sheet_title = "localized chiclets"
+        target_sheet_title = "localized differences"
         target_sheet = wb.create_sheet(title=target_sheet_title)
         target_sheet.append([])
         total_rows_used = 0
@@ -6806,22 +7460,34 @@ def save_wb():
                 for row_index, row in enumerate(source_sheet.iter_rows(values_only=True), start=1):
                     for column_index, cell_value in enumerate(row, start=1):
                         # Get the cell in the target sheet
-                        cell = target_sheet.cell(row=row_index + 1 + total_rows_used , column=column_index + 1)
+                        cell = target_sheet.cell(row=row_index + 2 + total_rows_used , column=column_index + 1)
                         cell.value = cell_value
 
                         # Color the cell based on its value
                         if cell_value == 1:
-                            color = globals().get(f'p_col_{p_col_length}')
+                            color = lcol1
                         elif cell_value == 2:
-                            color = globals().get(f'p_col_{p_col_length-1}')
+                            color = lcol2
                         elif cell_value == 3:
-                            color = b_col_abs
+                            color = lcol3
                         elif cell_value == 4:
-                            color = globals().get(f'd_col_{d_col_length}')
+                            color = lcol4
                         elif cell_value == 5:
-                            color = globals().get(f'd_col_{d_col_length-1}')
+                            color = lcol5
                         elif cell_value == 0:
-                            color = d_col_gtz
+                            color = lcol0
+                        elif cell_value == 6:
+                            if lcol6 != False:
+                                color = lcol6
+                            else:
+                                color = "000000"
+                        elif cell_value == 7:
+                            if lcol7 != False:
+                                color = lcol7
+                            else:
+                                color = "000000"
+                        else:
+                            color = "000000"
                         
                         fill = PatternFill(start_color=color, end_color=color, fill_type='solid')
                         cell.fill = fill
@@ -6846,16 +7512,24 @@ def save_wb():
                 
                 timepoint_number_increment = 0
                 while timepoint_number_increment < len(dif_timepoints):
-                    cell = target_sheet.cell(row=total_rows_used+2+timepoint_number_increment, column=1)
+                    cell = target_sheet.cell(row=total_rows_used+3+timepoint_number_increment, column=1)
                     cell.value = dif_timepoints[timepoint_number_increment]
                     cell.font = courier_new_style
                     timepoint_number_increment += 1
 
 
-                  
+                num_increment = 0
+                while num_increment < len(row_numbers):
+                    cell = target_sheet.cell(row=total_rows_used+1, column=2+num_increment)
+                    cell.value = row_numbers[num_increment]
+                    cell.font = size_5_courier_new_style
+                    cell.fill = white_fill
+                    num_increment += 1
+                
+                
                 seq_increment = 0
                 while seq_increment < len(row_sequence):
-                    cell = target_sheet.cell(row=total_rows_used+1, column=2+seq_increment)
+                    cell = target_sheet.cell(row=total_rows_used+2, column=2+seq_increment)
                     cell.value = row_sequence[seq_increment]
                     cell.font = courier_new_style
                     cell.fill = white_fill
@@ -6895,7 +7569,12 @@ def save_wb():
                 for i, column in enumerate(sheet.columns):
                     sheet.column_dimensions[column[0].column_letter].width = con_pep_width_enter.get()
         
-        
+        global mapviewer_bt
+        try:
+            mapviewer_bt.destroy()
+        except:
+            pass
+    
         wb_tit = filedialog.asksaveasfilename(filetypes=[("Excel Files", "*.xlsx")])
         if wb_tit:
             if not wb_tit.endswith(".xlsx"):
@@ -6954,7 +7633,7 @@ def save_pdf():
     
     global pdf_bt
     pdf_bt = tk.Button(window, text="Save Uptake Plots", command=get_pdf_title)
-    pdf_bt.place(x=1305, y=290)
+    pdf_bt.place(x=1285, y=290)
     
     run_bt.config(state="normal")
     run_bt.config(relief="raised")
@@ -6968,8 +7647,8 @@ def on_closing_mapviewer():
     
 def create_mapviewer_bt():
     global mapviewer_bt
-    mapviewer_bt = tk.Button(window, text="Open Linear Map Editor", command=open_mapviewer)
-    mapviewer_bt.place(x=1270, y=230)
+    mapviewer_bt = tk.Button(window, text="Localized Difference Editor", command=open_mapviewer)
+    mapviewer_bt.place(x=1260, y=230)
     
     run_bt.config(state="normal")
     run_bt.config(relief="raised")
@@ -6979,7 +7658,7 @@ mapviewer_open = False
 def open_mapviewer():
     global state_dropdown, mapviewer, timepoint_dropdown, mapviewer_open
     if mapviewer_open:
-        user_choice = tk.messagebox.askyesno("Linear Map Editor", "Linear Map Editor may already be open. Do you want to close and open a new window?")
+        user_choice = tk.messagebox.askyesno("Localized Differences Editor", "Localized Differences Editor may already be open. Do you want to close and open a new window?", default='no')
         if user_choice:
             mapviewer_open = False
             mapviewer.destroy()
@@ -6988,7 +7667,7 @@ def open_mapviewer():
             return
     mapviewer = tk.Toplevel(window)  # Create a new window for the popup menu
     mapviewer.geometry("1200x820")
-    mapviewer.title("Linear Map Editor")
+    mapviewer.title("Localized Differences Editor")
     mapviewer_open = True
     mapviewer.protocol("WM_DELETE_WINDOW", on_closing_mapviewer)
     
@@ -7062,7 +7741,17 @@ def create_pictures(event=None):
         
 
     
-    
+    def on_mouse_wheel(event):
+        if event.delta > 0:
+            move = -1
+        elif event.delta < 0:
+            move = 1
+        else:
+            move = 0
+            
+        h_canvas.xview_scroll(move, "units")
+        m_canvas.xview_scroll(move, "units")
+        v_canvas.xview_scroll(move, "units")
     
     h_canvas = tk.Canvas(mapviewer, bg="white")
     h_canvas.place(relx=0.1, rely=0.1, relwidth=0.8, relheight=0.15)
@@ -7092,6 +7781,9 @@ def create_pictures(event=None):
 
     # Set the scrollbar's command to control both canvases
     scrollbar.config(command=lambda *args: (h_canvas.xview(*args), m_canvas.xview(*args), v_canvas.xview(*args)))
+    
+    mapviewer.bind("<MouseWheel>", on_mouse_wheel)
+
 
 
     
@@ -7143,38 +7835,133 @@ def create_pictures(event=None):
     num_cells_in_last_frame = len(all_predicts) % 54
     num_invisible_squares = 54 - num_cells_in_last_frame
     for _ in range(0, num_invisible_squares):
-        all_predicts.append(6)
+        all_predicts.append(8)
     
     
     global color_mapping
-    color_mapping = {
-    0: "#" + d_col_gtz,
-    1: f"#{globals().get(f'p_col_{p_col_length}')}",
-    2: f"#{globals().get(f'p_col_{p_col_length-1}')}",
-    3: "#" + b_col_abs,
-    4: f"#{globals().get(f'd_col_{d_col_length}')}",
-    5: f"#{globals().get(f'd_col_{d_col_length-1}')}",
-    6: "#FFFFFF"
-    }
-    
-    # Create a figure and axis
-    fig, ax = plt.subplots(figsize=(6, 2))
-    
-    xpos = 0
-    for n in [2, 1, 0, 4, 5]:
-        color = color_mapping[n]
+    if lcol6 is not False and lcol7 is not False:
+        color_mapping = {
+        0: "#" + lcol0,
+        1: "#" + lcol1,
+        2: "#" + lcol2,
+        3: "#" + lcol3,
+        4: "#" + lcol4,
+        5: "#" + lcol5,
+        6: "#" + lcol6,
+        7: "#" + lcol7,
+        8: "#FFFFFF"
+        }
+
+        # Create a figure and axis
+        fig, ax = plt.subplots(figsize=(6, 2))
+
+        xpos = 0
+        for n in [6, 2, 1, 0, 4, 5, 7]:
+            color = color_mapping[n]
+            square = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
+            ax.plot([xpos+0.5, xpos+0.5], [1, 1.3], color='black', linewidth=1)
+            ax.text(xpos+0.5, 1.35, str(n), ha='center', va='bottom', fontsize=12)
+            xpos += 1
+            ax.add_patch(square)
+
+        xpos += 1
+        color = color_mapping[3]
         square = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
         ax.plot([xpos+0.5, xpos+0.5], [1, 1.3], color='black', linewidth=1)
-        ax.text(xpos+0.5, 1.35, str(n), ha='center', va='bottom', fontsize=12)
-        xpos += 1
+        ax.text(xpos+0.5, 1.35, str(3), ha='center', va='bottom', fontsize=12)
         ax.add_patch(square)
         
-    xpos += 1
-    color = color_mapping[3]
-    square = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
-    ax.plot([xpos+0.5, xpos+0.5], [1, 1.3], color='black', linewidth=1)
-    ax.text(xpos+0.5, 1.35, str(3), ha='center', va='bottom', fontsize=12)
-    ax.add_patch(square)
+    elif lcol6 is not False and lcol7 is False:
+        color_mapping = {
+        0: "#" + lcol0,
+        1: "#" + lcol1,
+        2: "#" + lcol2,
+        3: "#" + lcol3,
+        4: "#" + lcol4,
+        5: "#" + lcol5,
+        6: "#" + lcol6,
+        8: "#FFFFFF"
+        }
+
+        # Create a figure and axis
+        fig, ax = plt.subplots(figsize=(6, 2))
+
+        xpos = 0
+        for n in [6, 2, 1, 0, 4, 5]:
+            color = color_mapping[n]
+            square = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
+            ax.plot([xpos+0.5, xpos+0.5], [1, 1.3], color='black', linewidth=1)
+            ax.text(xpos+0.5, 1.35, str(n), ha='center', va='bottom', fontsize=12)
+            xpos += 1
+            ax.add_patch(square)
+
+        xpos += 1
+        color = color_mapping[3]
+        square = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
+        ax.plot([xpos+0.5, xpos+0.5], [1, 1.3], color='black', linewidth=1)
+        ax.text(xpos+0.5, 1.35, str(3), ha='center', va='bottom', fontsize=12)
+        ax.add_patch(square)
+        
+    elif lcol6 is False and lcol7 is not False:
+        color_mapping = {
+        0: "#" + lcol0,
+        1: "#" + lcol1,
+        2: "#" + lcol2,
+        3: "#" + lcol3,
+        4: "#" + lcol4,
+        5: "#" + lcol5,
+        7: "#" + lcol7,
+        8: "#FFFFFF"
+        }
+
+        # Create a figure and axis
+        fig, ax = plt.subplots(figsize=(6, 2))
+
+        xpos = 0
+        for n in [2, 1, 0, 4, 5, 7]:
+            color = color_mapping[n]
+            square = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
+            ax.plot([xpos+0.5, xpos+0.5], [1, 1.3], color='black', linewidth=1)
+            ax.text(xpos+0.5, 1.35, str(n), ha='center', va='bottom', fontsize=12)
+            xpos += 1
+            ax.add_patch(square)
+
+        xpos += 1
+        color = color_mapping[3]
+        square = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
+        ax.plot([xpos+0.5, xpos+0.5], [1, 1.3], color='black', linewidth=1)
+        ax.text(xpos+0.5, 1.35, str(3), ha='center', va='bottom', fontsize=12)
+        ax.add_patch(square)
+        
+    if lcol6 is False and lcol7 is False:
+        color_mapping = {
+        0: "#" + lcol0,
+        1: "#" + lcol1,
+        2: "#" + lcol2,
+        3: "#" + lcol3,
+        4: "#" + lcol4,
+        5: "#" + lcol5,
+        8: "#FFFFFF"
+        }
+
+        # Create a figure and axis
+        fig, ax = plt.subplots(figsize=(6, 2))
+
+        xpos = 0
+        for n in [2, 1, 0, 4, 5]:
+            color = color_mapping[n]
+            square = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
+            ax.plot([xpos+0.5, xpos+0.5], [1, 1.3], color='black', linewidth=1)
+            ax.text(xpos+0.5, 1.35, str(n), ha='center', va='bottom', fontsize=12)
+            xpos += 1
+            ax.add_patch(square)
+
+        xpos += 1
+        color = color_mapping[3]
+        square = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
+        ax.plot([xpos+0.5, xpos+0.5], [1, 1.3], color='black', linewidth=1)
+        ax.text(xpos+0.5, 1.35, str(3), ha='center', va='bottom', fontsize=12)
+        ax.add_patch(square)
     
     ax.spines['top'].set_visible(False)
     ax.spines['bottom'].set_visible(False)
@@ -7191,11 +7978,11 @@ def create_pictures(event=None):
         new_size = (old_size[0] * scale_factor, old_size[1] * scale_factor)
         figure.set_size_inches(new_size)
         
-    scale_factor = 0.3  # Scale down by 80%
+    scale_factor = 0.3  
     scale_figure(fig, scale_factor)
 
-
-    fig.savefig('./RecentLegends/linear_map_scale.png', dpi=300)
+    
+   # fig.savefig('./RecentLegends/linear_map_scale.png', dpi=300)
     
     tk_bg_color_rgb = (240 / 255, 240 / 255, 240 / 255)
     fig.patch.set_facecolor(tk_bg_color_rgb)
@@ -7205,9 +7992,38 @@ def create_pictures(event=None):
     legend_canvas_widget = legend_canvas.get_tk_widget()
     legend_canvas_widget.place(x=100, y=5)
     
-    
 
     plt.close()
+    
+    ######## BREAK IS HERE #######
+    
+    
+
+    
+    tk.Label(mapviewer, text="Number Code:").place(x=15, y=5)
+    
+    tk.Label(mapviewer, text="0 - Insignificant", font=("Arial", 8)).place(x=12, y=25)
+    tk.Label(mapviewer, text="Difference", font=("Arial", 8)).place(x=20, y=40)
+    
+    tk.Label(mapviewer, text="1 - Questionable", font=("Arial", 8)).place(x=12, y=60)
+    tk.Label(mapviewer, text="Protection", font=("Arial", 8)).place(x=20, y=75)
+    
+    tk.Label(mapviewer, text="2 - Significant", font=("Arial", 8)).place(x=12, y=95)
+    tk.Label(mapviewer, text="Protection", font=("Arial", 8)).place(x=20, y=110)
+    
+    tk.Label(mapviewer, text="3 - No Coverage", font=("Arial", 8)).place(x=12, y=130)
+    
+    tk.Label(mapviewer, text="4 - Questionable", font=("Arial", 8)).place(x=12, y=150)
+    tk.Label(mapviewer, text="Deprotection", font=("Arial", 8)).place(x=20, y=165)
+    
+    tk.Label(mapviewer, text="5 - Significant", font=("Arial", 8)).place(x=12, y=185)
+    tk.Label(mapviewer, text="Deprotection", font=("Arial", 8)).place(x=20, y=200)
+    
+    tk.Label(mapviewer, text="6/7 - Manual", font=("Arial", 8)).place(x=12, y=220)
+    tk.Label(mapviewer, text="(Never predicted)", font=("Arial", 8)).place(x=12, y=235)
+    
+     
+    
 
     
 
@@ -7276,7 +8092,7 @@ def create_pictures(event=None):
             cell_value = all_predicts[i + (page_num * 54)]
             square_color = color_mapping.get(cell_value, "pink")
             square_canvas.itemconfig(square_items[i], fill=square_color)
-            #chaaa
+            
             cell.bind("<Button-1>", lambda event, index=i, page_num=page_num: update_cell(event, index, page_num, ws, timepoint_index))
             cell.bind("<Button-3>", lambda event, index=i, page_num=page_num: copy_last_saved_value(event, index, page_num, ws, timepoint_index))# Right-click to copy last saved value
         cell_sets.append(cells)
@@ -7294,7 +8110,8 @@ def create_pictures(event=None):
         os.remove(temp_pdf_data_file_path)
         os.remove(temp_pdf_header_file_path)
     except:
-        print("Potential issues with excel. Make sure you are signed into excel")
+        tk.messagebox.showerror("Excel Error", "Excel Error: Cannot access Excel. Please make sure your computer has access to Excel and try again.")
+        return
     frame.update_idletasks()
     h_frame.update_idletasks()
     v_frame.update_idletasks()
@@ -7321,8 +8138,8 @@ def create_pictures(event=None):
     retrieve_button = tk.Button(mapviewer, text="Export to Pymol", command=lambda: export_to_pymol(ws, timepoint_index, current_state))
     retrieve_button.place(relx=0.9, rely=0.85)
     
-    save_linear_map_bt = tk.Button(mapviewer, text="Save Values", command=lambda: retrieve_values(ws, timepoint_index))
-    save_linear_map_bt.place(relx=0.9, rely=0.8)
+#    save_linear_map_bt = tk.Button(mapviewer, text="Save Values", command=lambda: retrieve_values(ws, timepoint_index))
+#    save_linear_map_bt.place(relx=0.9, rely=0.8)
     
 def export_to_pymol(ws, timepoint_index, current_state):
     all_values = retrieve_values(ws, timepoint_index)
@@ -7465,7 +8282,11 @@ def generate_pymol_commands(mapping, all_values, color_mapping2, chain_id):
     for index, value in enumerate(all_values):
         if index in mapping:
             pdb_index = mapping[index]
-            color = color_mapping2[value]
+            try:
+                color = color_mapping2[value]
+            except:
+                tk.messagebox.showerror("Color Error", "At least one residue has been labeled with a dissalowed number. Please make sure all residues are labelled with a number available in the legend and try again.")
+                return
             new_commands.append(f"color {color}, chain {chain_id} and resi {pdb_index}")
     return new_commands
 
@@ -7515,7 +8336,7 @@ def retrieve_values(ws, timepoint_index):
         all_values = [int(x) for x in all_values]
     x = 1
     while x > 0:
-        if all_values[-1] == 6:
+        if all_values[-1] == 8:
             all_values.pop()
         else:
             break
