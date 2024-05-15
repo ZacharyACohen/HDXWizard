@@ -1,0 +1,16 @@
+{
+    "header": "Localized Difference Plot Colors",
+    "lcols": [
+        "F2F2F2",
+        "C6C9FF",
+        "8080FF",
+        "FAE8D7",
+        "FFC0CB",
+        "FF8080"
+    ],
+    "significance_cutoff": 0.05,
+    "lcol_6": false,
+    "lcol_7": false,
+    "lcol_8": false,
+    "lcol_9": false
+}
