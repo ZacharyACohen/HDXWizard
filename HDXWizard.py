@@ -2604,6 +2604,17 @@ def create_example_plot():
     for state in statedic_of_pepdic_raw2:
         if not state.split("~")[0] == current_protein:
                 continue
+                
+        if show_last is False:
+            small_tuplist = []
+            for key, value in statedic_of_pepdic_raw2.items():
+                if not key.split("~")[0] == current_protein:
+                    continue
+                for any_peptide, tuplist in value.items():
+                    for each_tuple in tuplist:
+                        small_tuplist.append(each_tuple[1])
+            max_tp_here = max(small_tuplist)
+            
         up_list = []
         tp_list = []
         sd_list = []
@@ -2645,9 +2656,10 @@ def create_example_plot():
                 if show_last is True:
                     pass
                 if show_last is False:
-                    up_list = up_list[0:-1]
-                    tp_list = tp_list[0:-1]
-                    sd_list = sd_list[0:-1]
+                    if tp_list[-1] == max_tp_here:
+                        up_list = up_list[0:-1]
+                        tp_list = tp_list[0:-1]
+                        sd_list = sd_list[0:-1]
 
                 if tp_list[0] == 0:
                     tp_list = tp_list[1:]
@@ -2681,20 +2693,20 @@ def create_example_plot():
                             except:
                                 ax.plot(tp_list, up_list, color=order_color_dic[order], linestyle=linestyle_in_use, linewidth = linewidth_in_use, label=order_title_dic[order])
                             
-                        line = Line2D([0], [0], color=order_color_dic[order], linestyle='-', linewidth=legend_linewidth, label=order_title_dic[order])
-                        line_legend_entries.append(line)
+#                        line = Line2D([0], [0], color=order_color_dic[order], linestyle='-', linewidth=legend_linewidth, label=order_title_dic[order])
+#                        line_legend_entries.append(line)
                         for x, y in zip(tp_list, up_list):
                             ax.text(x, y, order_symbol_dic[order], color=order_color_dic[order], ha='center', va='center', fontsize=order_size_dic[order])
-        else:
-            for order, st in order_state_dic.items():
-                if st == state:
-                    line = Line2D([0], [0], color=order_color_dic[order], linestyle='-', linewidth=legend_linewidth, label=order_title_dic[order])
-                    line_legend_entries.append(line)
+#        else:
+#            for order, st in order_state_dic.items():
+#                if st == state:
+#                    line = Line2D([0], [0], color=order_color_dic[order], linestyle='-', linewidth=legend_linewidth, label=order_title_dic[order])
+#                    line_legend_entries.append(line)
                     
                  
     for state in statedic_of_pepdic_raw2:
-        if state.split("~")[0] == current_protein:
-                continue
+#        if state.split("~")[0] == current_protein:
+#                continue
         for order, st in order_state_dic.items():
             if st == state:
                 line = Line2D([0], [0], color=order_color_dic[order], linestyle='-', linewidth=legend_linewidth, label=order_title_dic[order])
@@ -3736,7 +3748,6 @@ def r_initialize():
     try:
         on_closing_mapviewer()
     except:
-        print("pass")
         pass
     
     new_dic_of_dif_lists = {}
@@ -7277,22 +7288,6 @@ def r_uptake_plots():
                 
     new_sorted_all_peptides = sorted_all_peptides  
     
-
-#    if seg_proteins == False:
-#        if cplt_chkval.get() == 1:
-#            states_to_look_in = order_state_dic.values()
-#            states_to_look_in = [x for x in states_to_look_in if x != False]
-#            for state in states_to_look_in:
-#                new_sorted_all_peptides = [x for x in new_sorted_all_peptides if x in peplist[state]]
-#    if seg_proteins == True:
-#        if cplt_chkval.get() == 1:
-#            states_to_look_in = order_state_dic.values()
-#            states_to_look_in = [x for x in states_to_look_in if x != False]
-#            
-#            
-#    if len(new_sorted_all_peptides) == 0:
-#        new_sorted_all_peptides = sorted_all_peptides    
-#        print("No peptides contain all states. Command ignored")
         
         
     
@@ -7398,6 +7393,18 @@ def r_uptake_plots():
         for state in statedic_of_pepdic_raw2:
             if not state.split("~")[0] == protein:
                 continue
+                
+                
+            if show_last is False:
+                small_tuplist = []
+                for key, value in statedic_of_pepdic_raw2.items():
+                    if not key.split("~")[0] == protein:
+                        continue
+                    for any_peptide, tuplist in value.items():
+                        for each_tuple in tuplist:
+                            small_tuplist.append(each_tuple[1])
+                max_tp_here = max(small_tuplist)
+            
             up_list = []
             tp_list = []
             sd_list = []
@@ -7419,9 +7426,7 @@ def r_uptake_plots():
                     for sd, tp in statedic_of_sddic_cor[state][peptide]:
                         sd_list.append(sd)
                     
-            if correction is True:
-                up_list = [z * max_theo for z in up_list]
-                sd_list = [z * max_theo for z in sd_list]
+
                 
             if tp_list != []:
                 if tp_list[0] == 0:
@@ -7440,9 +7445,10 @@ def r_uptake_plots():
                     if show_last is True:
                         pass
                     if show_last is False:
-                        up_list = up_list[0:-1]
-                        tp_list = tp_list[0:-1]
-                        sd_list = sd_list[0:-1]
+                        if tp_list[-1] == max_tp_here:
+                            up_list = up_list[0:-1]
+                            tp_list = tp_list[0:-1]
+                            sd_list = sd_list[0:-1]
                     
                     filtered_pairs = [(up, tp) for up, tp in zip(up_list, tp_list) if up != -99999]
                     if filtered_pairs:
@@ -7469,7 +7475,6 @@ def r_uptake_plots():
                                 try:
                                     ax.errorbar(tp_list, up_list, yerr=sd_list, color=order_color_dic[order], linestyle=linestyle_in_use, linewidth=(linewidth_in_use/2), capsize=(errorbar_capsize/2), elinewidth=(errorbar_linewidth/2), capthick=(errorbar_capthick/2))
                                 except:
-                                    print("excepting")
                                     ax.plot(tp_list, up_list, color=order_color_dic[order], linestyle=linestyle_in_use, linewidth = (linewidth_in_use/2))
                             
                             for x, y in zip(tp_list, up_list):
@@ -7956,7 +7961,7 @@ def create_pictures(event=None):
     # Set the scrollbar's command to control both canvases
     scrollbar.config(command=lambda *args: (h_canvas.xview(*args), m_canvas.xview(*args), v_canvas.xview(*args)))
     
-    mapviewer.bind("<MouseWheel>", on_mouse_wheel)
+    #mapviewer.bind("<MouseWheel>", on_mouse_wheel)
 
 
 
@@ -8187,6 +8192,7 @@ def create_pictures(event=None):
             a_frame.grid(row=1, column=page_num, padx=2)
         else:
             a_frame.grid(row=1, column=page_num, padx=2) #pre, padx = 9
+            
         cells = [tk.Label(a_frame, text=value, padx=2) for value in all_predicts[0+(page_num*54):54+(page_num*54)]]
         square_canvas = tk.Canvas(a_frame, width=15 * len(cells), height=15)
         square_canvas.grid(row=1, column=0, columnspan=54, sticky="w")  # Position the canvas to the left of the cells
@@ -8225,15 +8231,15 @@ def create_pictures(event=None):
     h_canvas.config(scrollregion=h_canvas.bbox("all"))
     v_canvas.config(scrollregion=v_canvas.bbox("all"))
     
-    def on_canvas_scroll(event):
-        h_canvas.xview_scroll(-1 * (event.delta // 120), "units")
-        m_canvas.xview_scroll(-1 * (event.delta // 120), "units")
-        v_canvas.xview_scroll(-1 * (event.delta // 120), "units")
-
-
-    h_canvas.bind("<MouseWheel>", on_canvas_scroll)
-    m_canvas.bind("<MouseWheel>", on_canvas_scroll)
-    v_canvas.bind("<MouseWheel>", on_canvas_scroll)
+#    def on_canvas_scroll(event):
+#        h_canvas.xview_scroll(-1 * (event.delta // 120), "units")
+#        m_canvas.xview_scroll(-1 * (event.delta // 120), "units")
+#        v_canvas.xview_scroll(-1 * (event.delta // 120), "units")
+#
+#
+#    h_canvas.bind("<MouseWheel>", on_canvas_scroll)
+#    m_canvas.bind("<MouseWheel>", on_canvas_scroll)
+#    v_canvas.bind("<MouseWheel>", on_canvas_scroll)
         
 
         
