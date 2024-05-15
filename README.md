@@ -6,7 +6,7 @@ HDXWizard is written completely in python (3.11.3) and uses Tkinter (8.6) for gr
 
 HDXWizard was developed at Northeastern University.
 
-Check out our [Installation Instructions](Install.md) for installation instructions.
+Check out [Installation Instructions](Install.md).
 
 Check out our [Frequently Asked Questions](FAQs.md) for more information.
 
