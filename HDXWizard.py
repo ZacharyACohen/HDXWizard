@@ -54,7 +54,7 @@ import json
 #print("Checking for Updates")
 #
 #
-version_number = "24.05.13"
+version_number = "24.05.15"
 #
 #try:
 #    program_needs_update = False
@@ -810,9 +810,9 @@ def check_button_clicks():
         theo_bt_off()
         msg1 = tk.Label(window, text="RFU Calculation and Correction")
         msg1.place(x=15, y=160)
-        exp_bt = tk.Button(window, text="Experimental (maxD)",bg="orange",fg="black",command=lambda: [theo_bt_off(), exp_bt_on()])
+        exp_bt = tk.Button(window, text="MaxD Corrected",bg="orange",fg="black",command=lambda: [theo_bt_off(), exp_bt_on()])
         exp_bt.place(x=150, y=190)
-        theo_bt = tk.Button(window, text="Calculated",bg="orange",fg="black",command=lambda: [exp_bt_off(), theo_bt_on()])
+        theo_bt = tk.Button(window, text="No maxD",bg="orange",fg="black",command=lambda: [exp_bt_off(), theo_bt_on()])
         theo_bt.place(x=50, y=190)
 
         x1 = 10
@@ -966,7 +966,27 @@ def heatmap_off():
     heatmap_bt.place(x=1340, y=160)
     heatmap_bt_on = False
 
+    
+    
+    
+def on_closing_custom_colors():
+    global custom_colors_open
+    custom_colors_open = False
+    popup_window_uptake.destroy()
+    
+custom_colors_open = False
 def create_custom_colors():
+    global custom_colors_open, popup_window_uptake
+    if custom_colors_open:
+        user_choice = tk.messagebox.askyesno("Custom Colors", "Create Custom Colors may already be open. Do you want to close and open a new window?", default='no')
+        if user_choice:
+            custom_colors_open = False
+            popup_window_uptake.destroy()
+        else:
+            popup_window_uptake.lift()
+            return
+    
+        
     def show_examples():
         try:
             os.startfile("Creating Custom Color Schemes.pdf")
@@ -974,8 +994,10 @@ def create_custom_colors():
             tk.messagebox.showerror("Error", "Cannot find example file")
             
     popup_window_uptake = tk.Toplevel(window)  # Create a new window for the popup menu
-    popup_window_uptake.geometry("920x500")
-    canvas = tk.Canvas(popup_window_uptake, width=920, height=500)
+    popup_window_uptake.geometry("1050x500")
+    custom_colors_open = True
+    popup_window_uptake.protocol("WM_DELETE_WINDOW", on_closing_custom_colors)
+    canvas = tk.Canvas(popup_window_uptake, width=1050, height=500)
     canvas.place(x=0, y=0)
     x1 = 5
     y1 = 5
@@ -1256,12 +1278,12 @@ def create_custom_colors():
 
     x1 = 347
     y1 = 5
-    x2 = 915
+    x2 = 915 + 130
     y2 = 495
     canvas.create_rectangle(x1, y1, x2, y2, outline="black", fill="")
     tk.Label(popup_window_uptake, text="Create Custom Colors for All Difference Maps").place(x=370, y=1)
     tk.Label(popup_window_uptake, text="Enter Difference with the highest absolute value differences first. For RFU enter as a decimal").place(x=360, y=50)
-    tk.Label(popup_window_uptake, text="Is this difference in Daltons (Calculated) or RFU (Experimental/maxD)?").place(x=360, y=25)
+    tk.Label(popup_window_uptake, text="Is this difference in Daltons or RFU?").place(x=360, y=25)
     tk.Label(popup_window_uptake, text="Protection").place(x=440, y=70)
     x1=352
     y=89
@@ -1580,7 +1602,7 @@ def create_custom_colors():
     
     x1 = 347
     y1 = 360
-    x2 = 915
+    x2 = 915 + 130
     y2 = 495
     
     canvas.create_rectangle(x1, y1, x2, y2, outline="black", fill="")
@@ -1622,6 +1644,12 @@ def create_custom_colors():
         lcol_7 = lcol_entry_7.get()
         if is_valid_hexadecimal(lcol_7) == False:
             lcol_7 = False
+        lcol_8 = lcol_entry_8.get()
+        if is_valid_hexadecimal(lcol_8) == False:
+            lcol_8 = False
+        lcol_9 = lcol_entry_9.get()
+        if is_valid_hexadecimal(lcol_9) == False:
+            lcol_9 = False
         
         
         json_data = {
@@ -1629,7 +1657,9 @@ def create_custom_colors():
             "lcols": lcols,
             "significance_cutoff": significance_cutoff,
             "lcol_6": lcol_6,
-            "lcol_7": lcol_7
+            "lcol_7": lcol_7,
+            "lcol_8": lcol_8,
+            "lcol_9": lcol_9
         }
         
         
@@ -1658,49 +1688,72 @@ def create_custom_colors():
 
     tk.Label(popup_window_uptake, text="Create Custom Colors for Localized Difference Plots - Manual Options are Optional").place(x=370, y=362)
     
+    
+    x1 = 493
+    y1 = 383
+    x2 = 860
+    y2 = 451
+    canvas.create_rectangle(x1, y1, x2, y2, outline="black", fill="", dash=(4,3))
+    
+    x1 = 986
+    y1 = 383
+    x2 = 1044
+    y2 = 451
+    canvas.create_rectangle(x1, y1, x2, y2, outline="black", fill="", dash=(4,3))
+    
     tk.Label(popup_window_uptake, text="Manual").place(x=365, y=385)
     tk.Label(popup_window_uptake, text="Option").place(x=366, y=405)
+    lcol_entry_7 = tk.Entry(popup_window_uptake, width=8)
+    lcol_entry_7.place(x=362, y=425)
+    
+    tk.Label(popup_window_uptake, text="Manual").place(x=430, y=385)
+    tk.Label(popup_window_uptake, text="Option").place(x=431, y=405)
     lcol_entry_6 = tk.Entry(popup_window_uptake, width=8)
-    lcol_entry_6.place(x=362, y=425)
+    lcol_entry_6.place(x=427, y=425)
     
-    tk.Label(popup_window_uptake, text="Significant").place(x=430, y=385)
-    tk.Label(popup_window_uptake, text="Protection").place(x=430, y=405)
+    tk.Label(popup_window_uptake, text="Significant").place(x=430+65, y=385)
+    tk.Label(popup_window_uptake, text="Protection").place(x=430+65, y=405)
     lcol_entry_2 = tk.Entry(popup_window_uptake, width=8)
-    lcol_entry_2.place(x=433, y=425)
+    lcol_entry_2.place(x=433+65, y=425)
     
-    tk.Label(popup_window_uptake, text="Questionable").place(x=500, y=385)
-    tk.Label(popup_window_uptake, text="Protection").place(x=505, y=405)
+    tk.Label(popup_window_uptake, text="Questionable").place(x=500+65, y=385)
+    tk.Label(popup_window_uptake, text="Protection").place(x=505+65, y=405)
     lcol_entry_1 = tk.Entry(popup_window_uptake, width=8)
-    lcol_entry_1.place(x=507, y=425)
+    lcol_entry_1.place(x=507+65, y=425)
     
-    tk.Label(popup_window_uptake, text="No").place(x=595, y=385)
-    tk.Label(popup_window_uptake, text="Difference").place(x=575, y=405)
+    tk.Label(popup_window_uptake, text="No").place(x=595+65, y=385)
+    tk.Label(popup_window_uptake, text="Difference").place(x=575+65, y=405)
     lcol_entry_0 = tk.Entry(popup_window_uptake, width=8)
-    lcol_entry_0.place(x=577, y=425)
+    lcol_entry_0.place(x=577+65, y=425)
     lcol_entry_0.insert(0, "F2F2F2")
     
-    tk.Label(popup_window_uptake, text="Questionable").place(x=640, y=385)
-    tk.Label(popup_window_uptake, text="Deprotection").place(x=641, y=405)
+    tk.Label(popup_window_uptake, text="Questionable").place(x=640+65, y=385)
+    tk.Label(popup_window_uptake, text="Deprotection").place(x=641+65, y=405)
     lcol_entry_4 = tk.Entry(popup_window_uptake, width=8)
-    lcol_entry_4.place(x=650, y=425)
+    lcol_entry_4.place(x=650+65, y=425)
     
-    tk.Label(popup_window_uptake, text="Significant").place(x=725, y=385)
-    tk.Label(popup_window_uptake, text="Deprotection").place(x=720, y=405)
+    tk.Label(popup_window_uptake, text="Significant").place(x=725+65, y=385)
+    tk.Label(popup_window_uptake, text="Deprotection").place(x=720+65, y=405)
     lcol_entry_5 = tk.Entry(popup_window_uptake, width=8)
-    lcol_entry_5.place(x=730, y=425)
+    lcol_entry_5.place(x=730+65, y=425)
     
-    tk.Label(popup_window_uptake, text="Manual").place(x=801, y=385)
-    tk.Label(popup_window_uptake, text="Option").place(x=802, y=405)
-    lcol_entry_7 = tk.Entry(popup_window_uptake, width=8)
-    lcol_entry_7.place(x=798, y=425)
+    tk.Label(popup_window_uptake, text="Manual").place(x=801+65, y=385)
+    tk.Label(popup_window_uptake, text="Option").place(x=802+65, y=405)
+    lcol_entry_8 = tk.Entry(popup_window_uptake, width=8)
+    lcol_entry_8.place(x=798+65, y=425)
     
-    tk.Label(popup_window_uptake, text="No").place(x=877, y=385)
-    tk.Label(popup_window_uptake, text="Coverage").place(x=858, y=405)
+    tk.Label(popup_window_uptake, text="Manual").place(x=801+130, y=385)
+    tk.Label(popup_window_uptake, text="Option").place(x=802+130, y=405)
+    lcol_entry_9 = tk.Entry(popup_window_uptake, width=8)
+    lcol_entry_9.place(x=798+130, y=425)
+    
+    tk.Label(popup_window_uptake, text="No").place(x=874+130, y=385)
+    tk.Label(popup_window_uptake, text="Coverage").place(x=858+130, y=405)
     lcol_entry_3 = tk.Entry(popup_window_uptake, width=8)
-    lcol_entry_3.place(x=859, y=425)
+    lcol_entry_3.place(x=859+130, y=425)
     lcol_entry_3.insert(0, "FAE8D7")
     
-    tk.Label(popup_window_uptake, text="Significance Cut-off (Da ~ 0.5 or decimal ~ 0.05):").place(x=360, y=455)
+    tk.Label(popup_window_uptake, text="Significance Cut-off (Da ~ 0.5 or RFU ~ 0.05):").place(x=360, y=455)
     significance_entry = tk.Entry(popup_window_uptake, width=5)
     significance_entry.place(x=630, y=456)
     
@@ -1750,9 +1803,9 @@ def create_format_box():
     global uptake_color_scheme_dropdown, difference_color_scheme_dropdown, localized_color_scheme_dropdown
     uptake_color_scheme_dropdown = ttk.Combobox(window, values=uptake_file_names, width=19)
     if exp_bt_on_c:
-        uptake_color_scheme_dropdown.set("uptake_cor_default.json")
+        uptake_color_scheme_dropdown.set("corrected_df.json")
     if theo_bt_on_c:
-        uptake_color_scheme_dropdown.set("uptake_uncor_default.json")
+        uptake_color_scheme_dropdown.set("uncorrected_df.json")
     uptake_color_scheme_dropdown.bind("<<ComboboxSelected>>")
     uptake_color_scheme_dropdown.place(x=1030, y=30)
     tk.Label(window, text="Uptake Colors: ").place(x=930, y=30)
@@ -1760,17 +1813,17 @@ def create_format_box():
     tk.Label(window, text="Localized Colors: ").place(x=930, y=90)
     difference_color_scheme_dropdown = ttk.Combobox(window, values=dif_file_names, width=19)
     if exp_bt_on_c == True:
-        difference_color_scheme_dropdown.set("dif_theo_default.json")
+        difference_color_scheme_dropdown.set("Da_green_blue.json")
     if theo_bt_on_c == True:
-        difference_color_scheme_dropdown.set("dif_theo_default.json")
+        difference_color_scheme_dropdown.set("Da_green_blue.json")
     difference_color_scheme_dropdown.bind("<<ComboboxSelected>>")
     difference_color_scheme_dropdown.place(x=1030, y=60)
     
     localized_color_scheme_dropdown = ttk.Combobox(window, values=local_file_names, width=19)
     if exp_bt_on_c:
-        localized_color_scheme_dropdown.set("local_theo_default.json")
+        localized_color_scheme_dropdown.set("9_Da_green_blue.json")
     if theo_bt_on_c:
-        localized_color_scheme_dropdown.set("local_theo_default.json")
+        localized_color_scheme_dropdown.set("9_Da_green_blue.json")
     localized_color_scheme_dropdown.bind("<<ComboboxSelected>>")
     localized_color_scheme_dropdown.place(x=1030, y=90)
     
@@ -1928,7 +1981,7 @@ def create_uptakeplot_box():
     tk.Label(window, text="Hex Color").place(x=573, y=537)
     tk.Label(window, text="Unicode Symbol").place(x=633, y=537)
     tk.Label(window, text="Size").place(x=738, y=537)
-    tk.Label(window, text="Title").place(x=790, y=537)
+    tk.Label(window, text="Legend Title").place(x=790, y=537)
     
     uptake_plot_colors = ["1F77B4", "FF7F0E", "2CA02C", "D62728", "9467BD", "8C564B", "E377C2", "7F7F7F", "BCBD22", "17BECF", "140003", "32CD32", "E47565", "C7703D", "D31C80", "800000"]
     uptake_plot_symbols = ["U+2B24", "U+25A0", "U+25B2", "U+25C6", "U+25BC", "U+25CB", "U+25A1", "U+025C1", "U+025C7", "U+025AE", "U+025B1", "U+025B3", "U+025B0", "U+025C8", "U+025C9", "U+25A3"]
@@ -2019,7 +2072,7 @@ def create_uptakeplot_box():
     tk.Label(window, text="Legend Options").place(x=910, y=455)
     x1 = 870
     y = 480
-    x2 = 1060
+    x2 = 1055
     canvas.create_line(x1, y, x2, y)
     tk.Label(window, text="Legend Size:").place(x=870, y=485)
     legend_size_entry = tk.Entry(window, width = 6)
@@ -2029,6 +2082,55 @@ def create_uptakeplot_box():
     legend_linewidth_entry = tk.Entry(window, width=6)
     legend_linewidth_entry.insert(0, "1")
     legend_linewidth_entry.place(x=975, y=515)
+    
+    
+    
+    tk.Label(window, text="Errorbar Options").place(x=910, y=615)
+    x1 = 870
+    y = 640
+    x2 = 1055
+    canvas.create_line(x1, y, x2, y)
+    
+    
+    
+    global chkval_errorbars, show_error_bars
+    show_error_bars = False
+    chkval_errorbars = tk.IntVar(value=0)
+    errorbar_checkbox = tk.Checkbutton(window, text='Show Errorbars', variable=chkval_errorbars, command=errorbar_toggle)
+    errorbar_checkbox.place(x=890, y=645)
+
+    
+    global capsize_entry, errorbar_linewidth_entry, capthick_entry
+    tk.Label(window, text="Capsize:").place(x=890, y=675)
+    capsize_entry = tk.Entry(window, width=6)
+    capsize_entry.place(x=960, y=675)
+    capsize_entry.insert(0, "5")
+    tk.Label(window, text="Linewdith:").place(x=890, y=705)
+    errorbar_linewidth_entry = tk.Entry(window, width=6)
+    errorbar_linewidth_entry.place(x=960, y=705)
+    errorbar_linewidth_entry.insert(0, "0.5")
+    tk.Label(window, text="CapThick:").place(x=890, y=735)
+    capthick_entry = tk.Entry(window, width=6)
+    capthick_entry.place(x=960, y=735)
+    capthick_entry.insert(0, "0.5")
+    
+    
+    x1 = 870
+    y = 765
+    x2 = 1055
+    canvas.create_line(x1, y, x2, y)
+    
+    global temp_max_plot_height_entry, temp_max_plot_chkval, change_scale
+    change_scale = False
+    tk.Label(window, text="Set max plot height (for .png only)").place(x=870, y=770)
+    temp_max_plot_height_entry = tk.Entry(window, width=6)
+    temp_max_plot_height_entry.place(x=870, y=800)
+    
+    temp_max_plot_chkval = tk.IntVar(value=0)
+    temp_max_plot_checkbox = tk.Checkbutton(window, variable=temp_max_plot_chkval, command=temp_max_plot_toggle)
+    temp_max_plot_checkbox.place(x=920, y=800)
+    
+    
     
     leg_ur = False
     leg_ul = False
@@ -2042,6 +2144,22 @@ def create_uptakeplot_box():
     br_bt.place(x=955, y=575)
     bl_bt = tk.Button(window, text="Bottom Left",  bg="orange", fg="black" ,width = 10, command = lambda: [ur_bt_off(), ul_bt_off(), bl_bt_on(), br_bt_off()])
     bl_bt.place(x=870, y=575)
+    create_example_plot()
+    
+def errorbar_toggle():
+    global chkval_errorbars, show_error_bars
+    if chkval_errorbars.get() == 1:
+        show_error_bars = True
+    else:
+        show_error_bars = False
+    create_example_plot()
+    
+def temp_max_plot_toggle():
+    global change_scale, temp_max_plot_chkval
+    if temp_max_plot_chkval.get() == 1:
+        change_scale = True
+    else:
+        change_scale = False
     create_example_plot()
     
 def ur_bt_on():
@@ -2329,6 +2447,11 @@ def parse_data():
         
         if color is False or symbol is False or size is False or title is False:
             order_state_dic[order] = False
+            
+    global errorbar_capsize, errorbar_linewidth, errorbar_capthick
+    errorbar_capsize = float(capsize_entry.get())
+    errorbar_linewidth = float(errorbar_linewidth_entry.get())
+    errorbar_capthick = float(capthick_entry.get())
         
 global current_peptide_index
 current_peptide_index = 0
@@ -2483,19 +2606,33 @@ def create_example_plot():
                 continue
         up_list = []
         tp_list = []
+        sd_list = []
         if correction is False:
             ax.set_ylim(0, max_theo)
+            if change_scale is True:
+                try:
+                    ax.set_ylim(0, int(temp_max_plot_height_entry.get()))
+                except:
+                    pass
             if current_peptide in statedic_of_pepdic_raw2[state]:
                 for up, tp in statedic_of_pepdic_raw2[state][current_peptide]:
                     up_list.append(up)
                     tp_list.append(tp)
+                for sd, tp in statedic_of_sddic_raw2[state][current_peptide]:
+                    sd_list.append(sd)
         if correction is True:
             ax.set_ylim(0, (max_theo + 2))
+            if change_scale is True:
+                try:
+                    ax.set_ylim(0, int(temp_max_plot_height_entry.get()))
+                except:
+                    pass
             if current_peptide in statedic_of_pepdic_cor[state]:
                 for up, tp in statedic_of_pepdic_cor[state][current_peptide]:
                     up_list.append(up)
                     tp_list.append(tp)
-                up_list = [z * max_theo for z in up_list]
+                for sd, tp in statedic_of_sddic_cor[state][current_peptide]:
+                    sd_list.append(sd)
                 
         if tp_list != []:
             max_timepoint = max(tp_list)
@@ -2510,10 +2647,12 @@ def create_example_plot():
                 if show_last is False:
                     up_list = up_list[0:-1]
                     tp_list = tp_list[0:-1]
+                    sd_list = sd_list[0:-1]
 
                 if tp_list[0] == 0:
                     tp_list = tp_list[1:]
                     up_list = up_list[1:]
+                    sd_list = sd_list[1:]
                 
                 
                 filtered_pairs = [(up, tp) for up, tp in zip(up_list, tp_list) if up != -99999]
@@ -2523,11 +2662,25 @@ def create_example_plot():
                     tp_list = list(tp_list)
                 else:
                     continue
-                        
+                    
+                sd_list = [z for z in sd_list if z != -99999]
+                
+                if correction is True:
+                    up_list = [z * max_theo for z in up_list]
+                    sd_list = [z * max_theo for z in sd_list]
+                    
+
                         
                 for order, st in order_state_dic.items():
                     if st == state:
-                        ax.plot(tp_list, up_list, color=order_color_dic[order], linestyle=linestyle_in_use, linewidth = linewidth_in_use, label=order_title_dic[order])
+                        if show_error_bars == False:
+                            ax.plot(tp_list, up_list, color=order_color_dic[order], linestyle=linestyle_in_use, linewidth = linewidth_in_use, label=order_title_dic[order])
+                        else:
+                            try:
+                                ax.errorbar(tp_list, up_list, yerr=sd_list, color=order_color_dic[order], linestyle=linestyle_in_use, linewidth=linewidth_in_use, label=order_title_dic[order], capsize=errorbar_capsize, elinewidth=errorbar_linewidth, capthick=errorbar_capthick)
+                            except:
+                                ax.plot(tp_list, up_list, color=order_color_dic[order], linestyle=linestyle_in_use, linewidth = linewidth_in_use, label=order_title_dic[order])
+                            
                         line = Line2D([0], [0], color=order_color_dic[order], linestyle='-', linewidth=legend_linewidth, label=order_title_dic[order])
                         line_legend_entries.append(line)
                         for x, y in zip(tp_list, up_list):
@@ -2547,6 +2700,13 @@ def create_example_plot():
                 line = Line2D([0], [0], color=order_color_dic[order], linestyle='-', linewidth=legend_linewidth, label=order_title_dic[order])
                 line_legend_entries.append(line)
             
+    if change_scale is True:
+        old_max_theo = max_theo
+        try:
+            max_theo = int(temp_max_plot_height_entry.get())
+        except:
+            pass
+        
     
     if max_theo <= 7:
         step = 1
@@ -2576,6 +2736,11 @@ def create_example_plot():
         y_ticks.append(max_theo)
     ax.set_yticks(y_ticks)
     
+    
+    
+    if change_scale is True:
+        max_theo = old_max_theo
+    
     ax.set_xlabel(x_enter.get())
     ax.set_xscale('log')
     
@@ -2588,6 +2753,7 @@ def create_example_plot():
     if leg_ur or leg_ul or leg_bl or leg_br is True:
         legend = ax.legend(handles=line_legend_entries, loc=leg_pos, prop={'size': legend_size})
         
+    global picture_widget
     picture = FigureCanvasTkAgg(fig, master=window)
     picture_widget = picture.get_tk_widget()
     picture_widget.place(x=1065, y=455, width=420, height = 370)
@@ -2609,6 +2775,16 @@ def save_figure(fig, startvalue, endvalue):
         tk.messagebox.showinfo("Save PDF", f"The PNG has been saved as '{png_tit}'.")
     
 def check_button_clicks2():
+    
+    for widget in window.winfo_children():
+        if widget.winfo_x() > 370 and widget != info_bt:
+            widget.destroy()
+    for item in canvas.find_all():
+        coords = canvas.coords(item)
+        # For lines and shapes, coords are a list of x, y pairs. We check the first x-coordinate.
+        if coords and coords[0] > 370:
+            canvas.delete(item)
+                
     global states, peplist, startvallist, endvallist, state_options, data, protein_states, sdbt_clicked, cdbt_clicked, dfs, class_peptides
     class_peptides = []
     
@@ -2830,8 +3006,8 @@ def maxD_Da_dif_bt_on():
     maxD_Da_dif_on_c = True
     maxD_Da_dif_bt = tk.Button(window, text="Corrected (Da)", fg="white", bg="green", width=13, command=lambda: [maxD_Da_dif_bt_off(), maxD_rfu_dif_bt_on()])
     maxD_Da_dif_bt.place(x=250, y=223)
-    difference_color_scheme_dropdown.set("dif_theo_default.json")
-    localized_color_scheme_dropdown.set("local_theo_default.json")
+    difference_color_scheme_dropdown.set("Da_green_blue.json")
+    localized_color_scheme_dropdown.set("9_Da_green_blue.json")
     maxD_dif_bt_list.append(maxD_Da_dif_bt)
     
 def maxD_Da_dif_bt_off():
@@ -2846,8 +3022,8 @@ def maxD_rfu_dif_bt_on():
     maxD_rfu_dif_on_c = True
     maxD_rfu_dif_bt = tk.Button(window, text="Corrected (RFU)", fg="white", bg="green", width=13, command=lambda: [maxD_Da_dif_bt_on(), maxD_rfu_dif_bt_off()])
     maxD_rfu_dif_bt.place(x=130, y=223)
-    difference_color_scheme_dropdown.set("dif_exp_default.json")
-    localized_color_scheme_dropdown.set("local_exp_default.json")
+    difference_color_scheme_dropdown.set("RFU_green_blue.json")
+    localized_color_scheme_dropdown.set("9_RFU_green_blue.json")
     maxD_dif_bt_list.append(maxD_rfu_dif_bt)
     
 def maxD_rfu_dif_bt_off():
@@ -2869,7 +3045,7 @@ def exp_bt_on():
     except:
         pass
     
-    exp_bt2 = tk.Button(window, text="Experimental (maxD)",bg="green",fg="white",command=lambda: [exp_bt_off(), theo_bt_on()])
+    exp_bt2 = tk.Button(window, text="MaxD Corrected",bg="green",fg="white",command=lambda: [exp_bt_off(), theo_bt_on()])
     exp_bt2.place(x=150, y=190)
     exp_bt_on_c = True
     maxD_dif_bt_list = []
@@ -2927,23 +3103,23 @@ def theo_bt_on():
         if try_worked == True:
             if float_be == 0:
                 try:
-                    uptake_color_scheme_dropdown.set("uptake_uncor_default.json")
+                    uptake_color_scheme_dropdown.set("uncorrected_df.json")
                 except:
                     pass
             else:
                 try:
-                    uptake_color_scheme_dropdown.set("uptake_cor_default.json")
+                    uptake_color_scheme_dropdown.set("corrected_df.json")
                 except:
                     pass
         if try_worked == False:
             try:
-                uptake_color_scheme_dropdown.set("uptake_uncor_default.json")
+                uptake_color_scheme_dropdown.set("uncorrected_df.json")
             except:
                 pass
 
         
     global theo_bt_on_c, be_entry, per_label, back_exchange_label, be_color_label, back_exchange_label
-    theo_bt2 = tk.Button(window, text="Calculated",bg="green",fg="white",command=lambda: [theo_bt_off(), exp_bt_on()])
+    theo_bt2 = tk.Button(window, text="No maxD",bg="green",fg="white",command=lambda: [theo_bt_off(), exp_bt_on()])
     theo_bt2.place(x=50, y=190)
     theo_bt_on_c = True
     back_exchange_label = tk.Label(window, text="Correct for Back Exchange:")
@@ -2969,7 +3145,7 @@ def theo_bt_on():
 
 def exp_bt_off():
     global exp_bt_on_c
-    exp_bt1 = tk.Button(window, text="Experimental (maxD)",bg="orange",fg="black",command=lambda: [theo_bt_off(), exp_bt_on()])
+    exp_bt1 = tk.Button(window, text="MaxD Corrected",bg="orange",fg="black",command=lambda: [theo_bt_off(), exp_bt_on()])
     exp_bt1.place(x=150, y=190)
     exp_bt_on_c = False
     global dropdown_widgets, label_widgets, custom_state_bt
@@ -3014,7 +3190,7 @@ def exp_bt_off():
 
 def theo_bt_off():
     global theo_bt_on_c, be_entry, per_label, back_exchange_label
-    theo_bt1 = tk.Button(window, text="Calculated",bg="orange",fg="black",command=lambda: [exp_bt_off(), theo_bt_on()])
+    theo_bt1 = tk.Button(window, text="No maxD",bg="orange",fg="black",command=lambda: [exp_bt_off(), theo_bt_on()])
     theo_bt1.place(x=50, y=190)
     theo_bt_on_c = False
     try:
@@ -3557,6 +3733,13 @@ def r_initialize():
         pass
     if comp_error_lab is not None:
         comp_error_lab.destroy()
+        
+    try:
+        on_closing_mapviewer()
+    except:
+        print("pass")
+        pass
+    
     new_dic_of_dif_lists = {}
     check_dif_reqs()
     
@@ -3601,7 +3784,7 @@ def r_initialize():
     
     p = r_extract_localized_colors_from_JSON()
     if p is False:
-        tk.messgabebox.showerror("Color Error", "Could not extract localized colors")
+        tk.messagebox.showerror("Color Error", "Could not extract localized colors")
         return
     
     if difmap_bt_on == False and pepmap_bt_on == False and chic_bt_on == False and cdif_bt_on == False and condpeps_bt_on == False and difcond_bt_on == False and uptake_plot_bt_on == False and heatmap_bt_on == False:
@@ -3619,7 +3802,7 @@ def r_initialize():
     wb = openpyxl.Workbook()
 
     r_make_legend1()
-    r_make_legend2()
+    r_make_legend2(True)
     r_make_legend3()
     create_example_plot()
     if uptake_plot_bt_on == True:
@@ -3898,7 +4081,7 @@ def r_extract_difference_colors_from_JSON():
             return False
         
 def r_extract_localized_colors_from_JSON():
-    global comp_error_lab, lcol0, lcol1, lcol2, lcol3, lcol4, lcol5, lcol6, lcol7, future_linear_map_multiplier
+    global comp_error_lab, lcol0, lcol1, lcol2, lcol3, lcol4, lcol5, lcol6, lcol7, lcol8, lcol9, future_linear_map_multiplier
     with open("./Colors/" + localized_color_scheme_dropdown.get(), 'r') as f:
         json_data = json.load(f)
         if json_data.get("header") == "Localized Difference Plot Colors":
@@ -3906,6 +4089,8 @@ def r_extract_localized_colors_from_JSON():
             future_linear_map_multiplier = json_data.get("significance_cutoff", 0)
             lcol6 = json_data.get("lcol_6", False)
             lcol7 = json_data.get("lcol_7", False)
+            lcol8 = json_data.get("lcol_8", False)
+            lcol9 = json_data.get("lcol_9", False)
             if future_linear_map_multiplier == 0:
                 tk.messagebox.showerror("Invalid Color Scheme", f"Significance Cut-Off Value in {localized_color_scheme_dropdown.get()} is invalid")
                 return
@@ -3917,10 +4102,14 @@ def r_extract_localized_colors_from_JSON():
             lcol3 = lcol_list[3]
             lcol4 = lcol_list[4]
             lcol5 = lcol_list[5]
+            if lcol6 == "False":
+                lcol6 = False
             if lcol7 == "False":
                 lcol7 = False
-            if lcol7 == "False":
-                lcol7 = False
+            if lcol8 == "False":
+                lcol8 = False
+            if lcol9 == "False":
+                lcol9 = False
         
         else:
             comp_error_lab = tk.Label(window, text="Difference color selection is not compatible")
@@ -4894,17 +5083,24 @@ def r_make_legend1():
     img.anchor = 'A7'
     ws.add_image(img)
 
-def r_make_legend2():
-    fig, ax = plt.subplots()
+def r_make_legend2(save_to_wb):
+    if save_to_wb == True:
+        fig, ax = plt.subplots()
+    else:
+        fig, ax = plt.subplots(figsize=(6.4, 2.0))
     xpos = p_col_length + d_col_length + 1
+    if save_to_wb == True:
+        text_fontsize = 12
+    else:
+        text_fontsize = 5
     if d_col_length >= 1:
         color = assign_hex(d_col_1)
         square_1 = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
         ax.plot([xpos, xpos], [1, 1.3], color='black', linewidth=1)
         if exp_bt_on_c == True and maxD_rfu_dif_on_c == True:
-            ax.text(xpos, 1.35, round(d_val_1 * 100), ha='center', va='bottom', fontsize=12)
+            ax.text(xpos, 1.35, round(d_val_1 * 100), ha='center', va='bottom', fontsize=text_fontsize)
         else:
-            ax.text(xpos, 1.35, d_val_1, ha='center', va='bottom', fontsize=12)
+            ax.text(xpos, 1.35, d_val_1, ha='center', va='bottom', fontsize=text_fontsize)
         xpos -= 1
         ax.add_patch(square_1)
     if d_col_length >= 2:
@@ -4912,9 +5108,9 @@ def r_make_legend2():
         square_2 = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
         ax.plot([xpos, xpos], [1, 1.3], color='black', linewidth=1)
         if exp_bt_on_c == True and maxD_rfu_dif_on_c == True:
-            ax.text(xpos, 1.35, round(d_val_2 * 100), ha='center', va='bottom', fontsize=12)
+            ax.text(xpos, 1.35, round(d_val_2 * 100), ha='center', va='bottom', fontsize=text_fontsize)
         else:
-            ax.text(xpos, 1.35, d_val_2, ha='center', va='bottom', fontsize=12)
+            ax.text(xpos, 1.35, d_val_2, ha='center', va='bottom', fontsize=text_fontsize)
         xpos -= 1
         ax.add_patch(square_2)
     if d_col_length >= 3:
@@ -4922,9 +5118,9 @@ def r_make_legend2():
         square_3 = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
         ax.plot([xpos, xpos], [1, 1.3], color='black', linewidth=1)
         if exp_bt_on_c == True and maxD_rfu_dif_on_c == True:
-            ax.text(xpos, 1.35, round(d_val_3 * 100), ha='center', va='bottom', fontsize=12)
+            ax.text(xpos, 1.35, round(d_val_3 * 100), ha='center', va='bottom', fontsize=text_fontsize)
         else:
-            ax.text(xpos, 1.35, d_val_3, ha='center', va='bottom', fontsize=12)
+            ax.text(xpos, 1.35, d_val_3, ha='center', va='bottom', fontsize=text_fontsize)
         xpos -= 1
         ax.add_patch(square_3)
     if d_col_length >= 4:
@@ -4932,9 +5128,9 @@ def r_make_legend2():
         square_4 = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
         ax.plot([xpos, xpos], [1, 1.3], color='black', linewidth=1)
         if exp_bt_on_c == True and maxD_rfu_dif_on_c == True:
-            ax.text(xpos, 1.35, round(d_val_4 * 100), ha='center', va='bottom', fontsize=12)
+            ax.text(xpos, 1.35, round(d_val_4 * 100), ha='center', va='bottom', fontsize=text_fontsize)
         else:
-            ax.text(xpos, 1.35, d_val_4, ha='center', va='bottom', fontsize=12)
+            ax.text(xpos, 1.35, d_val_4, ha='center', va='bottom', fontsize=text_fontsize)
         xpos -= 1
         ax.add_patch(square_4)
     if d_col_length >= 5:
@@ -4942,15 +5138,15 @@ def r_make_legend2():
         square_5 = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
         ax.plot([xpos, xpos], [1, 1.3], color='black', linewidth=1)
         if exp_bt_on_c == True and maxD_rfu_dif_on_c == True:
-            ax.text(xpos, 1.35, round(d_val_5 * 100), ha='center', va='bottom', fontsize=12)
+            ax.text(xpos, 1.35, round(d_val_5 * 100), ha='center', va='bottom', fontsize=text_fontsize)
         else:
-            ax.text(xpos, 1.35, d_val_5, ha='center', va='bottom', fontsize=12)
+            ax.text(xpos, 1.35, d_val_5, ha='center', va='bottom', fontsize=text_fontsize)
         xpos -= 1
         ax.add_patch(square_5)
     color = assign_hex(d_col_gtz)
     square_6 = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
     ax.plot([xpos, xpos], [1, 1.3], color='black', linewidth=1)
-    ax.text(xpos, 1.35, "0", ha='center', va='bottom', fontsize=12)
+    ax.text(xpos, 1.35, "0", ha='center', va='bottom', fontsize=text_fontsize)
     xpos -= 1
     ax.add_patch(square_6)
     color = assign_hex(p_col_gtz)
@@ -4960,9 +5156,9 @@ def r_make_legend2():
     ax.add_patch(square_7)
     if p_col_length >= 5:
         if exp_bt_on_c == True and maxD_rfu_dif_on_c == True:
-            ax.text(xpos + 1, 1.35, round(p_val_5 * 100), ha='center', va='bottom', fontsize=12)
+            ax.text(xpos + 1, 1.35, round(p_val_5 * 100), ha='center', va='bottom', fontsize=text_fontsize)
         else:
-            ax.text(xpos + 1, 1.35, p_val_5, ha='center', va='bottom', fontsize=12)
+            ax.text(xpos + 1, 1.35, p_val_5, ha='center', va='bottom', fontsize=text_fontsize)
         color = assign_hex(p_col_5)
         square_8 = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
         ax.plot([xpos, xpos], [1, 1.3], color='black', linewidth=1)
@@ -4970,9 +5166,9 @@ def r_make_legend2():
         ax.add_patch(square_8)
     if p_col_length >= 4:
         if exp_bt_on_c == True and maxD_rfu_dif_on_c == True:
-            ax.text(xpos + 1, 1.35, round(p_val_4 * 100), ha='center', va='bottom', fontsize=12)
+            ax.text(xpos + 1, 1.35, round(p_val_4 * 100), ha='center', va='bottom', fontsize=text_fontsize)
         else:
-            ax.text(xpos + 1, 1.35, p_val_4, ha='center', va='bottom', fontsize=12)
+            ax.text(xpos + 1, 1.35, p_val_4, ha='center', va='bottom', fontsize=text_fontsize)
         color = assign_hex(p_col_4)
         square_9 = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
         ax.plot([xpos, xpos], [1, 1.3], color='black', linewidth=1)
@@ -4980,9 +5176,9 @@ def r_make_legend2():
         ax.add_patch(square_9)
     if p_col_length >= 3:
         if exp_bt_on_c == True and maxD_rfu_dif_on_c == True:
-            ax.text(xpos + 1, 1.35, round(p_val_3 * 100), ha='center', va='bottom', fontsize=12)
+            ax.text(xpos + 1, 1.35, round(p_val_3 * 100), ha='center', va='bottom', fontsize=text_fontsize)
         else:
-            ax.text(xpos + 1, 1.35, p_val_3, ha='center', va='bottom', fontsize=12)
+            ax.text(xpos + 1, 1.35, p_val_3, ha='center', va='bottom', fontsize=text_fontsize)
         color = assign_hex(p_col_3)
         square_10 = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
         ax.plot([xpos, xpos], [1, 1.3], color='black', linewidth=1)
@@ -4990,9 +5186,9 @@ def r_make_legend2():
         ax.add_patch(square_10)
     if p_col_length >= 2:
         if exp_bt_on_c == True and maxD_rfu_dif_on_c == True:
-            ax.text(xpos + 1, 1.35, round(p_val_2 * 100), ha='center', va='bottom', fontsize=12)
+            ax.text(xpos + 1, 1.35, round(p_val_2 * 100), ha='center', va='bottom', fontsize=text_fontsize)
         else:
-            ax.text(xpos + 1, 1.35, p_val_2, ha='center', va='bottom', fontsize=12)
+            ax.text(xpos + 1, 1.35, p_val_2, ha='center', va='bottom', fontsize=text_fontsize)
         color = assign_hex(p_col_2)
         square_11 = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
         ax.plot([xpos, xpos], [1, 1.3], color='black', linewidth=1)
@@ -5000,152 +5196,96 @@ def r_make_legend2():
         ax.add_patch(square_11)
     if p_col_length >= 1:
         if exp_bt_on_c == True and maxD_rfu_dif_on_c == True:
-            ax.text(xpos + 1, 1.35, round(p_val_1 * 100), ha='center', va='bottom', fontsize=12)
+            ax.text(xpos + 1, 1.35, round(p_val_1 * 100), ha='center', va='bottom', fontsize=text_fontsize)
         else:
-            ax.text(xpos + 1, 1.35, p_val_1, ha='center', va='bottom', fontsize=12)
+            ax.text(xpos + 1, 1.35, p_val_1, ha='center', va='bottom', fontsize=text_fontsize)
         color = assign_hex(p_col_1)
         square_12 = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
         ax.add_patch(square_12)
-
-    color = assign_hex(b_col_abs)
-    square_13 = patches.Rectangle((xpos, -1.5), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
-    ax.add_patch(square_13)
-    ax.text(xpos + 3, -1.25, " No Data", ha='center', va='bottom', fontsize=14)
+    
+    if save_to_wb == True:
+        color = assign_hex(b_col_abs)
+        square_13 = patches.Rectangle((xpos, -1.5), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
+        ax.add_patch(square_13)
+        ax.text(xpos + 3, -1.25, " No Data", ha='center', va='bottom', fontsize=14)
+    if save_to_wb == False:
+        color = assign_hex(b_col_abs)
+        square_13 = patches.Rectangle((p_col_length + d_col_length + 3, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
+        ax.add_patch(square_13)
+        
 
     ax.spines['top'].set_visible(False)
     ax.spines['bottom'].set_visible(False)
     ax.spines['left'].set_visible(False)
     ax.spines['right'].set_visible(False)
 
-    ax.set_aspect('equal')
-    ax.set_xlim(-0.5, p_col_length + d_col_length + 3.5)
-    ax.set_ylim(-3, 2.5)
-    ax.set_xticks([])
-    ax.set_yticks([])
-    fig.savefig('./RecentLegends/differencelegend.png', dpi=300)
-    plt.close()
-    ws = wb['Figure Legends']
-    img = openpyxl.drawing.image.Image('./RecentLegends/differencelegend.png')
-    img.anchor = 'A87'
-    ws.add_image(img)
+    if save_to_wb == True:
+        ax.set_aspect('equal')
+        ax.set_xlim(-0.5, p_col_length + d_col_length + 3.5)
+        ax.set_ylim(-3, 2.5)
+        ax.set_xticks([])
+        ax.set_yticks([])
+    if save_to_wb == False:
+        ax.set_aspect('equal')
+        ax.set_xticks([])
+        ax.set_yticks([])
+    
+    if save_to_wb == True:
+        fig.savefig('./RecentLegends/differencelegend.png', dpi=300)
+        plt.close()
+        ws = wb['Figure Legends']
+        img = openpyxl.drawing.image.Image('./RecentLegends/differencelegend.png')
+        img.anchor = 'A87'
+        ws.add_image(img)
+    else:
+        return fig, ax
+    
 
 
 def r_make_legend3():
-    if lcol6 is not False and lcol7 is not False:
-        color_mapping = {
-        0: "#" + lcol0,
-        1: "#" + lcol1,
-        2: "#" + lcol2,
-        3: "#" + lcol3,
-        4: "#" + lcol4,
-        5: "#" + lcol5,
-        6: "#" + lcol6,
-        7: "#" + lcol7,
-        8: "#FFFFFF"
-        }
+    new_items_list = [lcol0, lcol1, lcol2, lcol3, lcol4, lcol5, lcol6, lcol7, lcol8, lcol9]
+    false_item_index_list = []
+    for i, item in enumerate(new_items_list):
+        if item == False:
+            false_item_index_list.append(i)
 
-        # Create a figure and axis
-        fig, ax = plt.subplots(figsize=(6, 2))
+    color_mapping = {}
+    for i, item in enumerate(new_items_list):
+        if i in false_item_index_list:
+            color_mapping[i] = "#000000"
+        color_mapping[i] = "#" + str(item)
+    
 
-        xpos = 0
-        for n in [6, 2, 1, 0, 4, 5, 7]:
-            color = color_mapping[n]
-            square = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
-            ax.plot([xpos+0.5, xpos+0.5], [1, 1.3], color='black', linewidth=1)
-            xpos += 1
-            ax.add_patch(square)
 
-        xpos += 1
-        color = color_mapping[3]
-        square = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
-        ax.plot([xpos+0.5, xpos+0.5], [1, 1.3], color='black', linewidth=1)
-        ax.add_patch(square)
+
+    color_indexes = []
+    color_indexes_possible = [7, 6, 2, 1, 0, 4, 5, 8, 9, 3]
+    for i, item in enumerate(color_indexes_possible):
+        if item in false_item_index_list:
+            continue
+        if color_indexes_possible[i] == 3:
+            continue
+        color_indexes.append(color_indexes_possible[i])
+    
+    
+    fig, ax = plt.subplots(figsize=(6, 2))
+    
+    
         
-    elif lcol6 is not False and lcol7 is False:
-        color_mapping = {
-        0: "#" + lcol0,
-        1: "#" + lcol1,
-        2: "#" + lcol2,
-        3: "#" + lcol3,
-        4: "#" + lcol4,
-        5: "#" + lcol5,
-        6: "#" + lcol6,
-        8: "#FFFFFF"
-        }
-
-        # Create a figure and axis
-        fig, ax = plt.subplots(figsize=(6, 2))
-
-        xpos = 0
-        for n in [6, 2, 1, 0, 4, 5]:
-            color = color_mapping[n]
-            square = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
-            ax.plot([xpos+0.5, xpos+0.5], [1, 1.3], color='black', linewidth=1)
-            xpos += 1
-            ax.add_patch(square)
-
-        xpos += 1
-        color = color_mapping[3]
+    xpos = 0
+    for n in color_indexes:
+        color = color_mapping[n]
         square = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
         ax.plot([xpos+0.5, xpos+0.5], [1, 1.3], color='black', linewidth=1)
-        ax.add_patch(square)
-        
-    elif lcol6 is False and lcol7 is not False:
-        color_mapping = {
-        0: "#" + lcol0,
-        1: "#" + lcol1,
-        2: "#" + lcol2,
-        3: "#" + lcol3,
-        4: "#" + lcol4,
-        5: "#" + lcol5,
-        7: "#" + lcol7,
-        8: "#FFFFFF"
-        }
-
-        # Create a figure and axis
-        fig, ax = plt.subplots(figsize=(6, 2))
-
-        xpos = 0
-        for n in [2, 1, 0, 4, 5, 7]:
-            color = color_mapping[n]
-            square = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
-            ax.plot([xpos+0.5, xpos+0.5], [1, 1.3], color='black', linewidth=1)
-            xpos += 1
-            ax.add_patch(square)
-
         xpos += 1
-        color = color_mapping[3]
-        square = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
-        ax.plot([xpos+0.5, xpos+0.5], [1, 1.3], color='black', linewidth=1)
         ax.add_patch(square)
-        
-    if lcol6 is False and lcol7 is False:
-        color_mapping = {
-        0: "#" + lcol0,
-        1: "#" + lcol1,
-        2: "#" + lcol2,
-        3: "#" + lcol3,
-        4: "#" + lcol4,
-        5: "#" + lcol5,
-        8: "#FFFFFF"
-        }
 
-        # Create a figure and axis
-        fig, ax = plt.subplots(figsize=(6, 2))
-
-        xpos = 0
-        for n in [2, 1, 0, 4, 5]:
-            color = color_mapping[n]
-            square = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
-            ax.plot([xpos+0.5, xpos+0.5], [1, 1.3], color='black', linewidth=1)
-            xpos += 1
-            ax.add_patch(square)
-
-        xpos += 1
-        color = color_mapping[3]
-        square = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
-        ax.plot([xpos+0.5, xpos+0.5], [1, 1.3], color='black', linewidth=1)
-        ax.add_patch(square)
+    xpos += 1
+    color = color_mapping[3]
+    square = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
+    ax.plot([xpos+0.5, xpos+0.5], [1, 1.3], color='black', linewidth=1)
+    ax.add_patch(square)
+    
     
     ax.spines['top'].set_visible(False)
     ax.spines['bottom'].set_visible(False)
@@ -6863,7 +7003,6 @@ def r_difcond():
 
 
 def r_heat_map():
-    print("\n\n")
     for sheet_name in wb.sheetnames:
         if sheet_name.endswith("_dif"):
             sheet = wb[sheet_name]
@@ -6907,6 +7046,7 @@ def r_heat_map():
 
                 
     model = tf.keras.models.load_model("model_1")
+    print("\n\n")
     window_extend = 10
     def label_peptides(matrix):
         last_value = 0
@@ -7261,12 +7401,15 @@ def r_uptake_plots():
                 continue
             up_list = []
             tp_list = []
+            sd_list = []
             if correction is False:
                 ax.set_ylim(0, max_theo)
                 if peptide in statedic_of_pepdic_raw2[state]:
                     for up, tp in statedic_of_pepdic_raw2[state][peptide]:
                         up_list.append(up)
                         tp_list.append(tp)
+                    for sd, tp in statedic_of_sddic_raw2[state][peptide]:
+                        sd_list.append(sd)
                     
             if correction is True:
                 ax.set_ylim(0, max_theo + 2)
@@ -7274,12 +7417,18 @@ def r_uptake_plots():
                     for up, tp in statedic_of_pepdic_cor[state][peptide]:
                         up_list.append(up)
                         tp_list.append(tp)
-                    up_list = [z * max_theo for z in up_list]
+                    for sd, tp in statedic_of_sddic_cor[state][peptide]:
+                        sd_list.append(sd)
+                    
+            if correction is True:
+                up_list = [z * max_theo for z in up_list]
+                sd_list = [z * max_theo for z in sd_list]
                 
             if tp_list != []:
                 if tp_list[0] == 0:
                     tp_list = tp_list[1:]
                     up_list = up_list[1:]
+                    sd_list = sd_list[1:]
                 max_timepoint = max(tp_list)
                 tick_values = [10**i for i in range(int(np.log10(max_timepoint)) + 1)]
                 ax.set_xticks(tick_values)
@@ -7294,6 +7443,7 @@ def r_uptake_plots():
                     if show_last is False:
                         up_list = up_list[0:-1]
                         tp_list = tp_list[0:-1]
+                        sd_list = sd_list[0:-1]
                     
                     filtered_pairs = [(up, tp) for up, tp in zip(up_list, tp_list) if up != -99999]
                     if filtered_pairs:
@@ -7302,11 +7452,27 @@ def r_uptake_plots():
                         tp_list = list(tp_list)
                     else:
                         continue
+                        
+                    sd_list = [z for z in sd_list if z != -99999]
+                    
+                    
+                    if correction is True:
+                        up_list = [z * max_theo for z in up_list]
+                        sd_list = [z * max_theo for z in sd_list]
                     
                     for order, st in order_state_dic.items():
                         if st == state:
                             last_filled_position = (row, col)
-                            ax.plot(tp_list, up_list, color=order_color_dic[order], linestyle=linestyle_in_use, linewidth = (linewidth_in_use/2))
+                            
+                            if show_error_bars == False:
+                                ax.plot(tp_list, up_list, color=order_color_dic[order], linestyle=linestyle_in_use, linewidth = (linewidth_in_use/2))
+                            else:
+                                try:
+                                    ax.errorbar(tp_list, up_list, yerr=sd_list, color=order_color_dic[order], linestyle=linestyle_in_use, linewidth=(linewidth_in_use/2), capsize=(errorbar_capsize/2), elinewidth=(errorbar_linewidth/2), capthick=(errorbar_capthick/2))
+                                except:
+                                    print("excepting")
+                                    ax.plot(tp_list, up_list, color=order_color_dic[order], linestyle=linestyle_in_use, linewidth = (linewidth_in_use/2))
+                            
                             for x, y in zip(tp_list, up_list):
                                 ax.text(x, y, order_symbol_dic[order], color=order_color_dic[order], ha='center', va='center', fontsize=(order_size_dic[order]/3))
     
@@ -7484,6 +7650,16 @@ def save_wb():
                         elif cell_value == 7:
                             if lcol7 != False:
                                 color = lcol7
+                            else:
+                                color = "000000"
+                        elif cell_value == 8:
+                            if lcol8 != False:
+                                color = lcol8
+                            else:
+                                color = "000000"
+                        elif cell_value == 9:
+                            if lcol9 != False:
+                                color = lcol9
                             else:
                                 color = "000000"
                         else:
@@ -7671,7 +7847,6 @@ def open_mapviewer():
     mapviewer_open = True
     mapviewer.protocol("WM_DELETE_WINDOW", on_closing_mapviewer)
     
-    tk.Label(mapviewer, text="To edit labels, left click on the number of the residue you wish to edit and enter the intended value. Numbers can also be right clicked to paste the previously entered value.").place(x=130, y=60)
 
     
     state_dropdown = ttk.Combobox(mapviewer, values=difference_titles, width=35)
@@ -7835,133 +8010,55 @@ def create_pictures(event=None):
     num_cells_in_last_frame = len(all_predicts) % 54
     num_invisible_squares = 54 - num_cells_in_last_frame
     for _ in range(0, num_invisible_squares):
-        all_predicts.append(8)
+        all_predicts.append("x")
     
     
     global color_mapping
-    if lcol6 is not False and lcol7 is not False:
-        color_mapping = {
-        0: "#" + lcol0,
-        1: "#" + lcol1,
-        2: "#" + lcol2,
-        3: "#" + lcol3,
-        4: "#" + lcol4,
-        5: "#" + lcol5,
-        6: "#" + lcol6,
-        7: "#" + lcol7,
-        8: "#FFFFFF"
-        }
+    new_items_list = [lcol0, lcol1, lcol2, lcol3, lcol4, lcol5, lcol6, lcol7, lcol8, lcol9]
+    false_item_index_list = []
+    for i, item in enumerate(new_items_list):
+        if item == False:
+            false_item_index_list.append(i)
 
-        # Create a figure and axis
-        fig, ax = plt.subplots(figsize=(6, 2))
+    color_mapping = {}
+    for i, item in enumerate(new_items_list):
+        if i in false_item_index_list:
+            color_mapping[i] = "#000000"
+        color_mapping[i] = "#" + str(item)
+    color_mapping["x"] = "#FFFFFF"
 
-        xpos = 0
-        for n in [6, 2, 1, 0, 4, 5, 7]:
-            color = color_mapping[n]
-            square = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
-            ax.plot([xpos+0.5, xpos+0.5], [1, 1.3], color='black', linewidth=1)
-            ax.text(xpos+0.5, 1.35, str(n), ha='center', va='bottom', fontsize=12)
-            xpos += 1
-            ax.add_patch(square)
 
-        xpos += 1
-        color = color_mapping[3]
-        square = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
-        ax.plot([xpos+0.5, xpos+0.5], [1, 1.3], color='black', linewidth=1)
-        ax.text(xpos+0.5, 1.35, str(3), ha='center', va='bottom', fontsize=12)
-        ax.add_patch(square)
+
+    color_indexes = []
+    color_indexes_possible = [7, 6, 2, 1, 0, 4, 5, 8, 9, 3]
+    for i, item in enumerate(color_indexes_possible):
+        if item in false_item_index_list:
+            continue
+        if color_indexes_possible[i] == 3:
+            continue
+        color_indexes.append(color_indexes_possible[i])
+    
+    
+    fig, ax = plt.subplots(figsize=(len(color_indexes_possible), 2))
+    
+    
         
-    elif lcol6 is not False and lcol7 is False:
-        color_mapping = {
-        0: "#" + lcol0,
-        1: "#" + lcol1,
-        2: "#" + lcol2,
-        3: "#" + lcol3,
-        4: "#" + lcol4,
-        5: "#" + lcol5,
-        6: "#" + lcol6,
-        8: "#FFFFFF"
-        }
-
-        # Create a figure and axis
-        fig, ax = plt.subplots(figsize=(6, 2))
-
-        xpos = 0
-        for n in [6, 2, 1, 0, 4, 5]:
-            color = color_mapping[n]
-            square = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
-            ax.plot([xpos+0.5, xpos+0.5], [1, 1.3], color='black', linewidth=1)
-            ax.text(xpos+0.5, 1.35, str(n), ha='center', va='bottom', fontsize=12)
-            xpos += 1
-            ax.add_patch(square)
-
-        xpos += 1
-        color = color_mapping[3]
+    xpos = 0
+    for n in color_indexes:
+        color = color_mapping[n]
         square = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
         ax.plot([xpos+0.5, xpos+0.5], [1, 1.3], color='black', linewidth=1)
-        ax.text(xpos+0.5, 1.35, str(3), ha='center', va='bottom', fontsize=12)
-        ax.add_patch(square)
-        
-    elif lcol6 is False and lcol7 is not False:
-        color_mapping = {
-        0: "#" + lcol0,
-        1: "#" + lcol1,
-        2: "#" + lcol2,
-        3: "#" + lcol3,
-        4: "#" + lcol4,
-        5: "#" + lcol5,
-        7: "#" + lcol7,
-        8: "#FFFFFF"
-        }
-
-        # Create a figure and axis
-        fig, ax = plt.subplots(figsize=(6, 2))
-
-        xpos = 0
-        for n in [2, 1, 0, 4, 5, 7]:
-            color = color_mapping[n]
-            square = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
-            ax.plot([xpos+0.5, xpos+0.5], [1, 1.3], color='black', linewidth=1)
-            ax.text(xpos+0.5, 1.35, str(n), ha='center', va='bottom', fontsize=12)
-            xpos += 1
-            ax.add_patch(square)
-
+        ax.text(xpos+0.5, 1.35, str(n), ha='center', va='bottom', fontsize=12)
         xpos += 1
-        color = color_mapping[3]
-        square = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
-        ax.plot([xpos+0.5, xpos+0.5], [1, 1.3], color='black', linewidth=1)
-        ax.text(xpos+0.5, 1.35, str(3), ha='center', va='bottom', fontsize=12)
         ax.add_patch(square)
-        
-    if lcol6 is False and lcol7 is False:
-        color_mapping = {
-        0: "#" + lcol0,
-        1: "#" + lcol1,
-        2: "#" + lcol2,
-        3: "#" + lcol3,
-        4: "#" + lcol4,
-        5: "#" + lcol5,
-        8: "#FFFFFF"
-        }
 
-        # Create a figure and axis
-        fig, ax = plt.subplots(figsize=(6, 2))
-
-        xpos = 0
-        for n in [2, 1, 0, 4, 5]:
-            color = color_mapping[n]
-            square = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
-            ax.plot([xpos+0.5, xpos+0.5], [1, 1.3], color='black', linewidth=1)
-            ax.text(xpos+0.5, 1.35, str(n), ha='center', va='bottom', fontsize=12)
-            xpos += 1
-            ax.add_patch(square)
-
-        xpos += 1
-        color = color_mapping[3]
-        square = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
-        ax.plot([xpos+0.5, xpos+0.5], [1, 1.3], color='black', linewidth=1)
-        ax.text(xpos+0.5, 1.35, str(3), ha='center', va='bottom', fontsize=12)
-        ax.add_patch(square)
+    xpos += 1
+    color = color_mapping[3]
+    square = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
+    ax.plot([xpos+0.5, xpos+0.5], [1, 1.3], color='black', linewidth=1)
+    ax.text(xpos+0.5, 1.35, str(3), ha='center', va='bottom', fontsize=12)
+    ax.add_patch(square)
+    
     
     ax.spines['top'].set_visible(False)
     ax.spines['bottom'].set_visible(False)
@@ -7978,9 +8075,9 @@ def create_pictures(event=None):
         new_size = (old_size[0] * scale_factor, old_size[1] * scale_factor)
         figure.set_size_inches(new_size)
         
+        
     scale_factor = 0.3  
     scale_figure(fig, scale_factor)
-
     
    # fig.savefig('./RecentLegends/linear_map_scale.png', dpi=300)
     
@@ -7995,8 +8092,17 @@ def create_pictures(event=None):
 
     plt.close()
     
-    ######## BREAK IS HERE #######
     
+    fig2, ax2 = r_make_legend2(False)
+    scale_factor = 0.4
+    scale_figure(fig2, scale_factor)
+    fig2.patch.set_facecolor(tk_bg_color_rgb)
+                 
+    legend2_canvas = FigureCanvasTkAgg(fig2, master=mapviewer)
+    legend2_canvas_widget = legend2_canvas.get_tk_widget()
+    legend2_canvas_widget.place(x=800, y=5)
+    
+    tk.Label(mapviewer, text="To edit labels, left click on the number of the residue you wish to edit and enter the intended value. Numbers can also be right clicked to paste the previously entered value.").place(x=130, y=60)
     
 
     
@@ -8019,7 +8125,7 @@ def create_pictures(event=None):
     tk.Label(mapviewer, text="5 - Significant", font=("Arial", 8)).place(x=12, y=185)
     tk.Label(mapviewer, text="Deprotection", font=("Arial", 8)).place(x=20, y=200)
     
-    tk.Label(mapviewer, text="6/7 - Manual", font=("Arial", 8)).place(x=12, y=220)
+    tk.Label(mapviewer, text="6/7/8/9 - Manual", font=("Arial", 8)).place(x=12, y=220)
     tk.Label(mapviewer, text="(Never predicted)", font=("Arial", 8)).place(x=12, y=235)
     
      
@@ -8189,6 +8295,8 @@ def export_to_pymol(ws, timepoint_index, current_state):
             color_mapping2[value] = color_name
 
         new_commands = generate_pymol_commands(index_mapping, all_values, color_mapping2, chain_id)
+        if new_commands == False:
+            return
         compiled_new_commands += new_commands
     
     commands = [f"load {pdb_file_path}"] + color_commands + [f"color {color_mapping2[3]}, polymer.protein"] + compiled_new_commands + ["hide (solvent)"]
@@ -8286,7 +8394,8 @@ def generate_pymol_commands(mapping, all_values, color_mapping2, chain_id):
                 color = color_mapping2[value]
             except:
                 tk.messagebox.showerror("Color Error", "At least one residue has been labeled with a dissalowed number. Please make sure all residues are labelled with a number available in the legend and try again.")
-                return
+                mapviewer.focus_set()
+                return False
             new_commands.append(f"color {color}, chain {chain_id} and resi {pdb_index}")
     return new_commands
 
@@ -8333,10 +8442,16 @@ def retrieve_values(ws, timepoint_index):
     for page_cells in cell_sets:
         current_values = [cell.cget("text") for cell in page_cells]
         all_values.extend(current_values)
-        all_values = [int(x) for x in all_values]
+        new_all_values = []
+        for item in all_values:
+            if item == "x":
+                new_all_values.append(item)
+            else:
+                new_all_values.append(int(item))
+        all_values = new_all_values
     x = 1
     while x > 0:
-        if all_values[-1] == 8:
+        if all_values[-1] == "x":
             all_values.pop()
         else:
             break
