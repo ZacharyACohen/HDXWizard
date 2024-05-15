@@ -10,4 +10,4 @@ Check out [Installation Instructions](Install.md).
 
 Check out our [Frequently Asked Questions](FAQs.md) for more information.
 
-WARNING: Tensorflow is not currently compatible with python 3.12. If this is an issue, use python 3.11.
+WARNING: Tensorflow is not currently compatible with python 3.12. Please use python 3.11.
