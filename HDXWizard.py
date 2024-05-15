@@ -2753,7 +2753,6 @@ def create_example_plot():
     if leg_ur or leg_ul or leg_bl or leg_br is True:
         legend = ax.legend(handles=line_legend_entries, loc=leg_pos, prop={'size': legend_size})
         
-    global picture_widget
     picture = FigureCanvasTkAgg(fig, master=window)
     picture_widget = picture.get_tk_widget()
     picture_widget.place(x=1065, y=455, width=420, height = 370)
