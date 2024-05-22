@@ -40,6 +40,8 @@ import warnings
 import shutil
 import re
 import os
+import subprocess
+import platform
 import csv
 import tempfile
 import atexit
@@ -48,6 +50,13 @@ import json
 #tkinter, openpyxl, numpy, pandas, matplotlib, xlwings, PyMuPDF, Tensorflow
 
 
+def open_file(filepath):
+    if platform.system() == 'Windows':
+        os.startfile(filepath)
+    elif platform.system() == 'Darwin':  # macOS
+        subprocess.call(('open', filepath))
+    else:  # Linux
+        subprocess.call(('xdg-open', filepath))
 
 
 #print("Initializing Program")
@@ -674,7 +683,8 @@ def skip_sequence_off():
 
 def open_info():
     try:
-        os.startfile("HDXWizard_Operating_Instructions_1.0.pdf")
+#        os.startfile("HDXWizard_Operating_Instructions_1.0.pdf")
+        open_file("HDXWizard_Operating_Instructions_1.0.pdf")
     except:
         tk.messagebox.showerror("Error", "Cannot find operating instructions file")
 
@@ -989,7 +999,8 @@ def create_custom_colors():
         
     def show_examples():
         try:
-            os.startfile("Creating Custom Color Schemes.pdf")
+            #os.startfile("Creating Custom Color Schemes.pdf")
+            open_file("Creating Custom Color Schemes.pdf")
         except:
             tk.messagebox.showerror("Error", "Cannot find example file")
             
@@ -4112,14 +4123,18 @@ def r_extract_localized_colors_from_JSON():
             lcol3 = lcol_list[3]
             lcol4 = lcol_list[4]
             lcol5 = lcol_list[5]
-            if lcol6 == "False":
-                lcol6 = False
-            if lcol7 == "False":
-                lcol7 = False
-            if lcol8 == "False":
-                lcol8 = False
-            if lcol9 == "False":
-                lcol9 = False
+            if lcol6 != False:
+                if lcol6.lower() == "false":
+                    lcol6 = False
+            if lcol7 != False:
+                if lcol7.lower() == "false":
+                    lcol7 = False
+            if lcol8 != False:
+                if lcol8.lower() == "false":
+                    lcol8 = False
+            if lcol9 != False:
+                if lcol9.lower() == "false":
+                    lcol9 = False
         
         else:
             comp_error_lab = tk.Label(window, text="Difference color selection is not compatible")
@@ -5078,7 +5093,7 @@ def r_make_legend1():
     ax.set_ylim(-3, 2.5)
     ax.set_xticks([])
     ax.set_yticks([])
-    fig.savefig('./RecentLegends/uptakelegend.png', dpi=300)
+    fig.savefig('./RecentLegends/uptakelegend.png', dpi=300) 
     plt.close()
     
     try:
@@ -5263,9 +5278,9 @@ def r_make_legend3():
     for i, item in enumerate(new_items_list):
         if i in false_item_index_list:
             color_mapping[i] = "#000000"
+            continue
         color_mapping[i] = "#" + str(item)
     
-
 
 
     color_indexes = []
@@ -8028,6 +8043,7 @@ def create_pictures(event=None):
     for i, item in enumerate(new_items_list):
         if i in false_item_index_list:
             color_mapping[i] = "#000000"
+            continue
         color_mapping[i] = "#" + str(item)
     color_mapping["x"] = "#FFFFFF"
 
@@ -8043,7 +8059,8 @@ def create_pictures(event=None):
         color_indexes.append(color_indexes_possible[i])
     
     
-    fig, ax = plt.subplots(figsize=(len(color_indexes_possible), 2))
+    #fig, ax = plt.subplots(figsize=(len(color_indexes_possible), 2))
+    fig, ax = plt.subplots(figsize=(6, 2))
     
     
         
@@ -8310,8 +8327,9 @@ def export_to_pymol(ws, timepoint_index, current_state):
         for command in commands:
             file.write(command + "\n")
 
-    import os
-    os.startfile("recent_color_mapping.pml")
+    
+    #os.startfile("recent_color_mapping.pml")
+    open_file("recent_color_mapping.pml")
     
     
         
