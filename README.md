@@ -10,7 +10,7 @@ Check out [Installation Instructions](Install.md).
 
 Check out our [Frequently Asked Questions](FAQs.md) for more information.
 
-This project includes the use of xlwings, which is licensed under the BSD 3-Clause License. See the [XLWINGS_LICENSE](XLWINGS_LICENSE) file for details.
+This project includes the use of xlwings, which is licensed under the BSD 3-Clause License. See the [XLWINGS_LICENSE](XLWINGS_LICENS) file for details.
 
 The code in this project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
