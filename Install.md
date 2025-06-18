@@ -4,15 +4,18 @@ Email t (dot) wales at northeastern (dot) edu for the official HDXWizard install
 
 1) Install HDXWizard - In the main folder of HDXWizard, click the green "<> code" button in the upper right, and download the zip file. Unzip the folder and move the folder to desired place.
 2) Install Python - Go to the python website and install python 3.11. During the download, check the checkbutton that says "Add python to PATH"
-3) Install Packages - Right click on HDXWizard folder and click "Copy as path". Open the command prompt (windows) or terminal (mac). Type in: **cd _copied_path_** (path to HDXWizard Folder), and click enter. Type **pip install -r requirements.txt** and click enter again
-4) Create desktop shortcut (Windows) (Optional) - Open any text editor, such as notepad. Write:
+3) Install Packages - Right click on HDXWizard folder and click "Copy as path". Open the command prompt (windows) or terminal (mac). Type in: **cd _copied_path_** (path to HDXWizard Folder), and click enter.
+4) Create a virtual Environment. Type in: **python -m venv hdxwizard_v1.2.3_env**, and click enter.
+5) Activate virtual environmnet. Type in: **hdxwizard_v1.2.3_env\Scripts\Activate**, and click enter.
+6) Install dependencies: Type **pip install -r requirements.txt** and click enter again
+7) Create desktop shortcut (Windows) (Optional) - Open any text editor, such as notepad. Write:
 
 
    **@echo off**
    
    **cd /d _copied_path_**
    
-   **python hdxwizard.py**
+   **python hdxwizard_v1.2.3.py**
    
    **pause**
 
