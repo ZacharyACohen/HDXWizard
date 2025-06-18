@@ -13,5 +13,3 @@ Check out our [Frequently Asked Questions](FAQs.md) for more information.
 This project includes the use of xlwings, which is licensed under the [BSD 3-Clause License](XLWINGS_LICENSE).
 
 The code in this project is licensed under the [MIT License](LICENSE).
-
-WARNING: Tensorflow is not currently compatible with python 3.12. Please use python 3.11.
