@@ -5,7 +5,6 @@ from tkinter import messagebox
 from tkinter import PhotoImage
 from tkinter import Toplevel
 
-
 import openpyxl
 from openpyxl.styles import Color, PatternFill, Font, Border
 from openpyxl.utils import get_column_letter
@@ -24,12 +23,9 @@ from matplotlib.lines import Line2D
 from matplotlib.widgets import Button, RectangleSelector
 import matplotlib.ticker as ticker
 
-
-
 import xlwings as xw
 import fitz  # PyMuPDF
 from PIL import Image, ImageTk
-
 
 import torch
 import torch.nn as nn
@@ -44,7 +40,11 @@ from Bio.SeqUtils import seq1
 from Bio import Align
 from Bio.PDB.PDBExceptions import PDBConstructionWarning
 
-
+#new with 1.2.3 for butterfly and PCA
+from scipy.interpolate import PchipInterpolator
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
 
 import warnings
 import shutil
@@ -58,6 +58,9 @@ import atexit
 import json
 from statistics import mode
 import traceback
+import math
+import sys
+
 
 delete_faulty_sheets = True   #### Should always be true except for debugging
 
@@ -72,12 +75,8 @@ def open_file(filepath):
 
 
 
-os.makedirs('RecentLegends', exist_ok=True)
-os.makedirs("englander_jsons", exist_ok=True)
-os.makedirs("baserate_jsons", exist_ok=True)
 
-if not os.path.isdir("Alterations"):
-    os.makedirs("Alterations")
+
 
 window = tk.Tk()
 window.geometry("1500x900")
@@ -86,6 +85,24 @@ if os.name == 'nt':
 window.title("HDXWizard")
 canvas = tk.Canvas(window, width=1500, height=900)
 canvas.place(x=0, y=0)
+
+try:
+    os.makedirs('RecentLegends', exist_ok=True)
+    os.makedirs("englander_jsons", exist_ok=True)
+    os.makedirs("baserate_jsons", exist_ok=True)
+    if not os.path.isdir("Alterations"):
+        os.makedirs("Alterations")
+    
+except PermissionError:
+    messagebox.showerror("Permission Error", "Permission Error has occurred. Please install HDXWizard for single user only, or run as administrator.")
+    window.destroy()
+    sys.exit()
+except Exception as e:
+    messagebox.showerror("Unknown Error", f"An Unknown Error has occurred:\n {e}")
+    window.destroy()
+    sys.exit()
+
+
 
 
 def reset_preferences():
@@ -805,18 +822,7 @@ def open_sequence_fasta():
                     return
         seq_headers.seek(0)
         seqbt_fasta_clicked = True
-#        for line in seq_headers:
-#            if line.startswith(">"):
-#                new_line = line.lstrip(">")
-#                protein_name = new_line.split("|")[0].split()[0]
-#                if protein_name not in prot_seq_dic:
-#                    next_line = next(seq_headers, None)  # Read the next line
-#                    if next_line is not None and next_line.strip() != "":
-#                        prot_seq_dic[protein_name] = next_line.strip()
-#                    else:
-#                        next_next_line = next(seq_headers, None)
-#                        if next_next_line is not None and next_next_line.strip() != "":
-#                            prot_seq_dic[protein_name] = next_next_line.strip()
+
         current_protein = None
         current_sequence = []
         for line in seq_headers:
@@ -885,18 +891,7 @@ def txt_h_on():
                 current_sequence.append(line)
         if current_protein:
             prot_seq_dic[current_protein] = "".join(current_sequence)
-#        for line in seq_headers:
-#            if line.startswith(">"):
-#                new_line = line.lstrip(">")
-#                protein_name = new_line.split("|")[0].split()[0]
-#                if protein_name not in prot_seq_dic:
-#                    next_line = next(seq_headers, None)  # Read the next line
-#                    if next_line is not None and next_line.strip() != "":
-#                        prot_seq_dic[protein_name] = next_line.strip()
-#                    else:
-#                        next_next_line = next(seq_headers, None)
-#                        if next_next_line is not None and next_next_line.strip() != "":
-#                            prot_seq_dic[protein_name] = next_next_line.strip()
+
             
         txt_h_bt = tk.Button(window, text=".txt (>)",bg="green",fg="white", width=5, command=lambda: [seq_txt_off(), skip_sequence_off(), open_sequence_fasta_off(), txt_h_on()])
         txt_h_bt.place(x=170, y=105)
@@ -927,24 +922,9 @@ def skip_sequence_off():
 def open_info():
     try:
 #        os.startfile("HDXWizard_Operating_Instructions_1.0.pdf")
-        open_file("HDXWizard_Operating_Instructions_1.0.pdf")
+        open_file("HDXWizard_Operating_Instructions_1.2.3.pdf")
     except:
         tk.messagebox.showerror("Error", "Cannot find operating instructions file")
-
-
-#def go_to_git():
-#    webbrowser.open("https://github.com/ZacharyACohen/HDXWizard.git")
-#
-#if program_needs_update is True:
-#    popup_window_update = tk.Toplevel(window)  # Create a new window for the popup menu
-#    popup_window_update.geometry("500x100")
-#    popup_window_update.title("Update Available")
-#    tk.Label(popup_window_update, text=f"Current Version: {version_number}").place(x=10, y=10)
-#    tk.Label(popup_window_update, text=f"Newest Version: {newest_version}").place(x=10, y=40)
-#    update_label = tk.Label(popup_window_update, text="Please go to https://github.com/ZacharyACohen/HDXWizard.git to update program")
-#    update_label.place(x=10, y=70)
-#    go_bt = tk.Button(popup_window_update, text="GO", command=go_to_git).place(x=460, y=68)
-#    popup_window_update.attributes("-topmost", True)
 
 
 
@@ -1275,12 +1255,15 @@ def theo_calculation_off():
     theo_calc_bt = tk.Button(window, text="Englander Rates", bg="orange", fg="black", command=lambda: [n_min_one_off(), n_min_two_off(), theo_calculation_on()])
     theo_calc_bt.place(x=265, y=250)
     
-    englander_window.destroy()
+    try:
+        englander_window.destroy()
+    except:
+        pass
     calculate_theoretical_back_exchange = False
     
 
 def check_button_clicks():
-    global difmap_bt_on, pepmap_bt_on, chic_bt_on, cdif_bt_on, condpeps_bt_on, difcond_bt_on, uptake_plot_bt_on, heatmap_bt_on    
+    global difmap_bt_on, pepmap_bt_on, chic_bt_on, cdif_bt_on, condpeps_bt_on, difcond_bt_on, uptake_plot_bt_on, heatmap_bt_on, butterfly_dif_on, PCA_bt_on   
     if (sdbt_clicked or cdbt_clicked or examiner_clicked or workbench_clicked) and (seqbt_txt_clicked or seqbt_fasta_clicked or skip_bt_clicked or txt_h_bt_clicked):
         exp_bt_off()
         theo_bt_off()
@@ -1354,6 +1337,8 @@ def check_button_clicks():
         difcond_bt_on = False
         uptake_plot_bt_on = False
         heatmap_bt_on = False
+        butterfly_dif_on = False
+        PCA_bt_on = False
         
         for widget in window.winfo_children():
             if widget.winfo_x() > 370 and widget != settings_bt:
@@ -1410,11 +1395,15 @@ def start_progress():
         pmax = pmax + len(new_dic_of_dif_list)
     if uptake_plot_bt_on:
         pmax = pmax + 2
+    if butterfly_dif_on:
+        pmax = pmax + 2
+    if PCA_bt_on:
+        pmax = pmax + 2
     style = ttk.Style()
     style.theme_use('clam')
     style.configure("blue.Horizontal.TProgressbar", foreground='blue', background='blue')
     progress = ttk.Progressbar(window, style='blue.Horizontal.TProgressbar', orient='horizontal', mode='determinate', length=200, maximum=pmax)
-    progress.place(x=1270, y=200, width=200, height=25)  # Position the progress bar at the bottom left
+    progress.place(x=1270, y=240, width=200, height=25)  # Position the progress bar at the bottom left
     window.update()
 
 difmap_bt_on = False
@@ -1425,6 +1414,8 @@ condpeps_bt_on = False
 difcond_bt_on = False
 uptake_plot_bt_on = False
 heatmap_bt_on = False
+butterfly_dif_on = False
+PCA_bt_on = False
 def difmap_on():
     global difmap_bt_on
     difmap_bt_2 = tk.Button(window, text="Peptide Difference",bg="green",fg="white",width=17, command=lambda: (difmap_off(), heatmap_off()))
@@ -1505,6 +1496,26 @@ def heatmap_off():
     heatmap_bt = tk.Button(window, text="Localized Differences", bg="orange", fg="black", width=17, command=lambda: (heatmap_on(), difcond_on(), difmap_on()))
     heatmap_bt.place(x=1340, y=160)
     heatmap_bt_on = False
+def butterfly_on():
+    global butterfly_dif_on
+    butterfly_bt = tk.Button(window, text="Butterfly Differences*",bg="green", fg="white", width=17, command=butterfly_off)
+    butterfly_bt.place(x=1340, y=200)
+    butterfly_dif_on = True
+def butterfly_off():
+    global butterfly_dif_on
+    butterfly_bt = tk.Button(window, text="Butterfly Differences*", bg="orange", fg="black", width=17, command=butterfly_on)
+    butterfly_bt.place(x=1340, y=200)
+    butterfly_dif_on = False
+def PCA_on():
+    global PCA_bt_on
+    PCA_bt = tk.Button(window, text="PCA Plot*",bg="green", fg="white", width=17, command=PCA_off)
+    PCA_bt.place(x=1190, y=200)
+    PCA_bt_on = True
+def PCA_off():
+    global PCA_bt_on
+    PCA_bt = tk.Button(window, text="PCA Plot*", bg="orange", fg="black", width=17, command=PCA_on)
+    PCA_bt.place(x=1190, y=200)
+    PCA_bt_on = False
 
     
     
@@ -2256,7 +2267,7 @@ def create_custom_colors():
     lcol_entry_2 = tk.Entry(popup_window_uptake, width=8)
     lcol_entry_2.place(x=433+65, y=425)
     
-    tk.Label(popup_window_uptake, text="Questionable").place(x=500+65, y=385)
+    tk.Label(popup_window_uptake, text="Validation Needed").place(x=490+65, y=385)
     tk.Label(popup_window_uptake, text="Protection").place(x=505+65, y=405)
     lcol_entry_1 = tk.Entry(popup_window_uptake, width=8)
     lcol_entry_1.place(x=507+65, y=425)
@@ -2267,7 +2278,7 @@ def create_custom_colors():
     lcol_entry_0.place(x=577+65, y=425)
     lcol_entry_0.insert(0, "F2F2F2")
     
-    tk.Label(popup_window_uptake, text="Questionable").place(x=640+65, y=385)
+    tk.Label(popup_window_uptake, text="Validation Needed").place(x=620+65, y=385)
     tk.Label(popup_window_uptake, text="Deprotection").place(x=641+65, y=405)
     lcol_entry_4 = tk.Entry(popup_window_uptake, width=8)
     lcol_entry_4.place(x=650+65, y=425)
@@ -2473,11 +2484,6 @@ def create_format_box():
     y1 = 264
     y2 = 238
     canvas.create_rectangle(x1, y1, x2, y2, outline="black", fill="")
-#    full_pep_width_lb = tk.Label(window, text = "Cell Width:")
-#    full_pep_width_lb.place(x=925, y=235)
-#    full_pep_width_enter = tk.Entry(window, width=5)
-#    full_pep_width_enter.insert(0, "4")
-#    full_pep_width_enter.place(x=1000, y=235)
     reduce_states_label = tk.Label(window, text = "Only Show States From Uptake Plot Box:")
     reduce_states_label.place(x=925, y=268)
     global reduce_states_var
@@ -2507,11 +2513,6 @@ def create_format_box():
     y1 = 346
     y2 = 320
     canvas.create_rectangle(x1, y1, x2, y2, outline="black", fill="")
-#    con_pep_width_lb = tk.Label(window, text = "Cell Width:")
-#    con_pep_width_lb.place(x=925, y=331)
-#    con_pep_width_enter = tk.Entry(window, width=5)
-#    con_pep_width_enter.insert(0, "2.5")
-#    con_pep_width_enter.place(x=1000, y=331)
 
 
 
@@ -2634,7 +2635,7 @@ def create_run_box():
     canvas.create_rectangle(x1, y1, x2, y2, outline="black", fill="")
 
     run_bt = tk.Button(window, text="\u23F5",bg="blue",fg="white",width=7, command=r_initialize)
-    run_bt.place(x=1190,y=200)
+    run_bt.place(x=1190,y=240)
     chic_bt = tk.Button(window, text="Chiclet Plot",bg="orange",fg="black", width=17, command=chiclet_on)
     chic_bt.place(x=1190,y=40)
     cdif_bt = tk.Button(window, text="Chiclet Difference",bg="orange",fg="black", width=17, command=cdif_on)
@@ -2651,7 +2652,11 @@ def create_run_box():
     uptake_plot_bt.place(x=1190, y=160)
     heatmap_bt = tk.Button(window, text="Localized Differences", bg="orange", fg="black", width=17, command=lambda: (heatmap_on(), difcond_on(), difmap_on()))
     heatmap_bt.place(x=1340, y=160)
-    
+    butterfly_bt = tk.Button(window, text="Butterfly Differences*", bg="orange", fg="black", width=17, command=butterfly_on)
+    butterfly_bt.place(x=1340, y=200)
+    PCA_bt = tk.Button(window, text="PCA Plot*", bg="orange", fg="black", width=17, command=PCA_on)
+    PCA_bt.place(x=1190, y=200)
+    tk.Label(window, text="Scripts Labelled with * are in developement").place(x=1190, y=420)
     
 def create_uptakeplot_box():
     global correction, uptake_plot_colors, uptake_plot_symbols, show_last, maxD_dash, state_selects, col_entries, sym_entries, size_entries, x_enter, y_enter, linewidth_enter, pep_search_enter, a_horizontal, a_vertical, title_entries, legend_size_entry, leg_ur, leg_ul, leg_bl, leg_br, leg_pos, legend_linewidth_entry, dot_chkval, cplt_chkval
@@ -2705,11 +2710,6 @@ def create_uptakeplot_box():
     show_last = True
     maxD_dash = False
     
-#    complete_states_label = tk.Label(window, text="Complete States Only:")
-#    complete_states_label.place(x=1152, y=830)
-#    cplt_chkval = tk.IntVar(value=0)
-#    cplt_chk = tk.Checkbutton(window, text='', variable=cplt_chkval)
-#    cplt_chk.place(x=1282, y=830)
     
     tk.Label(window, text="State").place(x=425, y=537)
     tk.Label(window, text="Hex Color").place(x=573, y=537)
@@ -2990,7 +2990,7 @@ def on_state_selected(event, title_entry, state_select):
     selected_value = state_select.get()
     if "~" in selected_value:
         title_entry.delete(0, tk.END)
-        title_entry.insert(0, selected_value.split("~")[1])
+        title_entry.insert(0, selected_value)
     elif selected_value == "N/A":
         title_entry.delete(0, tk.END)
     else:
@@ -3077,19 +3077,6 @@ def vertical_bt_off():
     a_vertical = False
     a_horizontal = True
     
-#def maxd_dash_on():
-#    global maxD_dash
-#    maxD_dash_bt = tk.Button(window, text="maxD Dashed Line", bg = 'green', fg='white', command=maxd_dash_off)
-#    maxD_dash_bt.place(x=880, y=835)
-#    maxD_dash = True
-#    create_example_plot()
-#    
-#def maxd_dash_off():
-#    global maxD_dash
-#    maxD_dash_bt = tk.Button(window, text="maxD Dashed Line", bg = 'orange', fg='black', command=maxd_dash_on)
-#    maxD_dash_bt.place(x=880, y=835)
-#    maxD_dash = False
-#    create_example_plot()
 
 global search_on
 search_on = False
@@ -3470,9 +3457,9 @@ def create_example_plot():
                 
                 if correction is True:
                     up_list = [z * max_theo for z in up_list]
-                    sd_list = [z * max_theo if z != np.nan else np.nan for z in sd_list]
+                    sd_list = [z * max_theo if not np.isnan(z) else np.nan for z in sd_list]
                     
-                SE_list = [z / np.sqrt(float(SE_num_entry.get())) if z != np.nan else np.nan for z in sd_list]                      
+                SE_list = [z / np.sqrt(float(SE_num_entry.get())) if not np.isnan(z) else np.nan for z in sd_list]                      
                 
                         
                 for order, st in order_state_dic.items():
@@ -3546,13 +3533,6 @@ def create_example_plot():
     if correction is True:
         max_theo -= 2
     
-#    if maxD_dash is True:
-#        print(statedic_of_pepdic_raw2[state])
-#        upt_tp_tups = statedic_of_pepdic_raw2[state][peptide]
-#        maxfile_up_tp_tups = statedic_of_pepdic_raw2[maxfile][peptide]
-#        max_tp = max(maxfile_up_tp_tups, key=lambda x: x[1])[1]
-#        maxD_uptake = next(x[0] for x in maxfile_up_tp_tups if x[1] == max_tp)
-#        ax.axhline(y=maxD_uptake, color='black', linestyle='--', linewidth=1)
     
     if change_scale is True or calculate_theoretical_back_exchange is True:
         max_theo = old_max_theo
@@ -3802,7 +3782,12 @@ def check_button_clicks2():
     create_uptakeplot_box()
     dif_bt_done()
 
-
+def set_all_maxD(): 
+    global dropdowns
+    selected_value = dropdown_widgets[0].get()
+    for dropdown in dropdown_widgets:
+        dropdown.set(selected_value)
+    
 
 def make_maxdic_dropdowns():
     global vsb, maxdic_canvas, maxdic_frame
@@ -3962,7 +3947,7 @@ def maxD_rfu_dif_bt_off():
 exp_bt_on_c = False
 theo_bt_on_c = False
 def exp_bt_on():
-    global exp_bt_on_c, maxD_label, custom_state_bt, exp_st_lb, maxD_peptides_lb, maxD_label_line, state_label_line, choose_rfu_or_da_label, maxD_dif_bt_list, maxD_rfu_dif_on_c, maxD_Da_dif_on_c
+    global exp_bt_on_c, maxD_label, custom_state_bt, exp_st_lb, maxD_peptides_lb, maxD_label_line, state_label_line, choose_rfu_or_da_label, maxD_dif_bt_list, maxD_rfu_dif_on_c, maxD_Da_dif_on_c, set_all_bt
     
     try:
         for item in maxD_dif_bt_list:
@@ -3984,6 +3969,9 @@ def exp_bt_on():
     exp_st_lb.place(x=45, y=313)
     maxD_peptides_lb = tk.Label(window, text="maxD Peptide Extraction")
     maxD_peptides_lb.place(x=175, y=313)
+    
+    set_all_bt = tk.Button(window, text="Set All", command=set_all_maxD) 
+    set_all_bt.place(x=310, y=313)
     
 #    custom_state_bt = tk.Button(window, text="Custom State", bg="white", fg="black", command=create_custom_state)
 #    custom_state_bt.place(x=275, y=220)
@@ -4102,6 +4090,7 @@ def exp_bt_off():
         custom_state_bt.destroy()
         exp_st_lb.destroy()
         maxD_peptides_lb.destroy()
+        set_all_bt.destroy()
     except:
         pass
     try:
@@ -4668,6 +4657,14 @@ def r_initialize():
     except:
         pass
     try:
+        butterfly_title_bt.destroy()
+    except:
+        pass
+    try:
+        PCA_title_bt.destroy()
+    except:
+        pass
+    try:
         mapviewer_bt.destroy()
     except:
         pass
@@ -4711,7 +4708,10 @@ def r_initialize():
         if new_dic_of_dif_list == {}:
             tk.messagebox.showerror("Difference Error", "There are no differences selected, you cannot run [Condensed Difference]")
             return
-    
+    if butterfly_dif_on:
+        if new_dic_of_dif_list == {}:
+            tk.messagebox.showerror("Difference Error", "There are no differences selected, you cannot run [Butterfly Difference]")
+            return
 
 
 
@@ -4730,7 +4730,7 @@ def r_initialize():
         tk.messagebox.showerror("Color Error", "Could not extract localized colors")
         return
     
-    if difmap_bt_on == False and pepmap_bt_on == False and chic_bt_on == False and cdif_bt_on == False and condpeps_bt_on == False and difcond_bt_on == False and uptake_plot_bt_on == False and heatmap_bt_on == False:
+    if difmap_bt_on == False and pepmap_bt_on == False and chic_bt_on == False and cdif_bt_on == False and condpeps_bt_on == False and difcond_bt_on == False and uptake_plot_bt_on == False and heatmap_bt_on == False and butterfly_dif_on == False and PCA_bt_on == False:
         tk.messagebox.showerror("Run Error", "Please make sure you have selected what visualizations to produce and try again")
         return
     
@@ -4742,7 +4742,7 @@ def r_initialize():
     start_progress()
 
 
-    global wb
+    global wb, heatmap_outcome
     wb = openpyxl.Workbook()
 
     r_make_legend1()
@@ -4752,7 +4752,9 @@ def r_initialize():
     coincident_peptides()
     if uptake_plot_bt_on == True:
         create_example_plot()
-        r_uptake_plots()
+        uptake_temp_folder = r_uptake_plots()
+    if butterfly_dif_on == True:
+        temp_folder_path = r_butterfly_dif()
     if chic_bt_on == True:
         r_chiclet()
     if cdif_bt_on == True:
@@ -4765,14 +4767,22 @@ def r_initialize():
         r_condpeps()
     if difcond_bt_on == True:
         r_difcond()
+    if PCA_bt_on == True:
+        PCA_temp_folder_path = r_PCA()
     if heatmap_bt_on == True:
-        r_heat_map()
-    if uptake_plot_bt_on == True:
-        save_pdf()
+        heatmap_outcome = r_heat_map()
+    if uptake_plot_bt_on == True and uptake_temp_folder != None:
+        save_pdf(uptake_temp_folder)
+    if butterfly_dif_on == True and temp_folder_path != None:
+        save_butterfly(temp_folder_path)
+    if PCA_bt_on == True and PCA_temp_folder_path != None:
+        save_PCA(PCA_temp_folder_path)
     if chic_bt_on or cdif_bt_on or pepmap_bt_on or difmap_bt_on or condpeps_bt_on or difcond_bt_on or heatmap_bt_on:
-        save_wb()
-    if heatmap_bt_on:
+        save_wb() 
+    if heatmap_bt_on and heatmap_outcome == "Success":
         create_mapviewer_bt()
+    run_bt.config(state="normal")
+    run_bt.config(relief="raised")
         
 def coincident_peptides():  
     global coincident_protein_peptides
@@ -4791,6 +4801,9 @@ def coincident_peptides():
                     continue
                 if peptide not in statedic_of_pepdic_cor[state_name].keys():
                     banned_peptide_set.add(peptide)
+                else:
+                    if all(uptake == -99999 for uptake, timepoint in statedic_of_pepdic_cor[state_name][peptide] if timepoint != 0):
+                        banned_peptide_set.add(peptide)
 
         coincident_peptides = [peptide for peptide in peptides_for_protein if peptide not in banned_peptide_set]
         coincident_protein_peptides[protein] = coincident_peptides
@@ -4901,7 +4914,7 @@ def r_extract_uptake_colors_from_JSON():
             return True
         else:
             comp_error_lab = tk.Label(window, text="Uptake color selection is not compatible")
-            comp_error_lab.place(x=1190, y=230)
+            comp_error_lab.place(x=1190, y=270)
             run_bt.config(state="normal")
             run_bt.config(relief="raised")
             return False
@@ -5042,7 +5055,7 @@ def r_extract_difference_colors_from_JSON():
             return True
         else:
             comp_error_lab = tk.Label(window, text="Difference color selection is not compatible")
-            comp_error_lab.place(x=1190, y=230)
+            comp_error_lab.place(x=1190, y=270)
             run_bt.config(state="normal")
             run_bt.config(relief="raised")
             return False
@@ -5084,7 +5097,7 @@ def r_extract_localized_colors_from_JSON():
         
         else:
             comp_error_lab = tk.Label(window, text="Difference color selection is not compatible")
-            comp_error_lab.place(x=1190, y=230)
+            comp_error_lab.place(x=1190, y=270)
             run_bt.config(state="normal")
             run_bt.config(relief="raised")
             return False
@@ -5513,225 +5526,7 @@ def r_process_data():
             
     
 
-#            if maxdic[state].startswith("pyAVG"):
-#                pepdic_cor = {}
-#                sddic_cor = {}
-#                maxd_list = list()
-#                maxtheo_list = list()
-#                maxSD_list = list()
-#                maxfiles = new_states_dic[maxdic[state]]
-#                st1 = maxfiles[0]
-#                st2 = maxfiles[1]
-#
-#                noD_dic_peptides = {}
-#                for peptide, upt_tp_tups in pepdic_raw2.items():
-#                    try:
-#                        up_tp_tups1 = statedic_of_pepdic_raw2[st1][peptide]
-#                        max_tp1 = max(up_tp_tups1, key=lambda x: x[1])[1]
-#                        maxD1 = next(x[0] for x in up_tp_tups1 if x[1] == max_tp1)
-#                    except:
-#                        maxD1 = -99999
-#                    try:
-#                        up_tp_tups2 = statedic_of_pepdic_raw2[st2][peptide]
-#                        max_tp2 = max(up_tp_tups2, key=lambda x: x[1])[1]
-#                        maxD2 = next(x[0] for x in up_tp_tups2 if x[1] == max_tp2)
-#                    except:
-#                        maxD2 = -99999
-#                    try:
-#                        sd_tp_tups1 = statedic_of_sddic_raw2[st1][peptide]
-#                        max_tp1 = max(sd_tp_tups1, key=lambda x: x[1])[1]
-#                        maxSD1 = next(x[0] for x in sd_tp_tups1 if x[1] == max_tp1)
-#                    except:
-#                        maxSD1 = -99999
-#                    try:
-#                        sd_tp_tups2 = statedic_of_sddic_raw2[st2][peptide]
-#                        max_tp2 = max(sd_tp_tups2, key=lambda x: x[1])[1]
-#                        maxSD2 = next(x[0] for x in sd_tp_tups2 if x[1] == max_tp2)
-#                    except:
-#                        maxSD2 = -99999
-#                    if maxD1 != -99999:
-#                        maxd_list.append(maxD1)
-#                        if maxSD1 != -99999:
-#                            maxSD_list.append(maxSD1)
-#
-#                        max_theo = get_max_theo(peptide)
-#                        maxtheo_list.append(max_theo)
-#
-#                    if maxD2 != -99999:
-#                        maxd_list.append(maxD2)
-#                        if maxSD1 != -99999:
-#                            maxSD_list.append(maxSD2)
-#
-#                        max_theo = get_max_theo(peptide)
-#                        maxtheo_list.append(max_theo)
-#                    if maxD1 == -99999 and maxD2 == -99999:
-#                        noD_dic_peptides[peptide] = True
-#                noD_dic_states[state] = noD_dic_peptides
-#                if len(maxd_list) != 0:
-#                    total_uptake = sum(maxd_list)
-#                    total_theo = sum(maxtheo_list)
-#                    average_rfu = (total_uptake / total_theo)
-#                    if len(maxSD_list) != 0:
-#                        sd_array_squared = np.asarray(maxSD_list) ** 2
-#                        sd_comb = (np.sqrt(np.sum(sd_array_squared)))/len(maxSD_list)
-#                        average_rfu_sd_percent = sd_comb / (total_uptake/len(maxd_list))
-#                        average_rfu_sd = average_rfu_sd_percent * average_rfu
-#                    else:
-#                        average_rfu_sd = 0
-#                else:
-#                    average_rfu = 1
-#                    average_rfu_sd = 0
-#
-#
-#                for peptide, upt_tp_tups in pepdic_raw2.items():
-#                    if peptide in peplist[st1]:
-#                        if peptide in peplist[st2]:
-#                            up_tp_tups1 = statedic_of_pepdic_raw2[st1][peptide]
-#                            up_tp_tups2 = statedic_of_pepdic_raw2[st2][peptide]
-#                            sd_tp_tups1 = statedic_of_sddic_raw2[st1][peptide]
-#                            sd_tp_tups2 = statedic_of_sddic_raw2[st2][peptide]
-#                            max_tp_1 = max(up_tp_tups1, key=lambda x: x[1])[1]
-#                            maxD_1 = next(x[0] for x in up_tp_tups1 if x[1] == max_tp_1)
-#                            max_tp_2 = max(up_tp_tups2, key=lambda x: x[1])[1]
-#                            maxD_2 = next(x[0] for x in up_tp_tups2 if x[1] == max_tp_2)
-#                            max_tp_sd1 = max(sd_tp_tups1, key=lambda x: x[1])[1]
-#                            maxSD_1 = next(x[0] for x in sd_tp_tups1 if x[1] == max_tp_sd1)
-#                            max_tp_sd2 = max(sd_tp_tups2, key=lambda x: x[1])[1]
-#                            maxSD_2 = next(x[0] for x in sd_tp_tups2 if x[1] == max_tp_sd2)
-#
-#                            if maxD_1 != -99999 and maxD_2 != -99999:
-#                                maxD = (maxD_1 + maxD_2)/2
-#                                if maxSD_1 != -99999 and maxSD_2 != -99999:
-#                                    maxSD = (np.sqrt(((maxSD_1) ** 2) + ((maxSD_2) ** 2)))/2
-#                                elif maxSD_1 != -99999:
-#                                    maxSD = maxSD_1
-#                                elif maxSD_2 != -99999:
-#                                    maxSD = maxSD_2
-#                                else:
-#                                    maxSD = -99999
-#                            elif maxD_1 != -99999:
-#                                maxD = maxD_1
-#                                if maxSD_1 != -99999:
-#                                    maxSD = maxSD_1
-#                                else:
-#                                    maxSD = -99999
-#                            elif maxD_2 != -99999:
-#                                maxD = maxD_2
-#                                if maxSD_2 != -99999:
-#                                    maxSD = maxSD_2
-#                                else:
-#                                    maxSD = -99999
-#                            else:
-#
-#                                maxD_i = get_max_theo(peptide)
-#                                maxD = maxD_i * average_rfu
-#                                maxSD = (float(average_rfu_sd) / float(average_rfu)) * maxD
-#
-#                        else:
-#                            up_tp_tups1 = statedic_of_pepdic_raw2[st1][peptide]
-#                            max_tp_1 = max(up_tp_tups1, key=lambda x: x[1])[1]
-#                            maxD = next(x[0] for x in up_tp_tups1 if x[1] == max_tp_1)
-#                            sd_tp_tups1 = statedic_of_sddic_raw2[st1][peptide]
-#                            max_tp_sd1 = max(sd_tp_tups1, key=lambda x: x[1])[1]
-#                            maxSD_1 = next(x[0] for x in sd_tp_tups1 if x[1] == max_tp_sd1)
-#                            if maxD == -99999:
-#
-#                                maxD_i = get_max_theo(peptide)
-#                                maxD = maxD_i * average_rfu
-#                                maxSD = (float(average_rfu_sd) / float(average_rfu)) * maxD
-#                            else:
-#                                maxSD = maxSD_1
-#                        Dcorrected_tups = list()
-#                        Dcorrected_sd_tups = list()
-#                        sd_tp_tups = statedic_of_sddic_raw2[state][peptide]
-#                        for uptake, timepoint in upt_tp_tups:
-#                            if uptake != -99999:
-#                                Dcorrected = (float(uptake) / float(maxD))
-#                                for sd, tp in sd_tp_tups:
-#                                    if tp == timepoint:
-#                                        uptake_SD = float(sd)
-#                                        break
-#                                if uptake_SD != -99999 and uptake != 0 and maxSD != -99999:
-#                                    Dcorrected_SD_percent = np.sqrt((((uptake_SD)/(float(uptake))) ** 2) + (((maxSD)/(float(maxD))) ** 2))
-#                                    Dcorrected_SD = Dcorrected_SD_percent * Dcorrected
-#                                else:
-#                                    Dcorrected_SD = -99999
-#                            else:
-#                                Dcorrected = -99999
-#                                Dcorrected_SD = -99999
-#                            Dcorrected_tups.append((Dcorrected, timepoint))
-#                            Dcorrected_sd_tups.append((Dcorrected_SD, timepoint))
-#                        pepdic_cor[peptide] = Dcorrected_tups
-#                        sddic_cor[peptide] = Dcorrected_sd_tups
-#
-#                    if peptide in peplist[st2]:
-#                        if peptide not in peplist[st1]:
-#                            up_tp_tups2 = statedic_of_pepdic_raw2[st2][peptide]
-#                            max_tp_2 = max(up_tp_tups2, key=lambda x: x[1])[1]
-#                            maxD = next(x[0] for x in up_tp_tups2 if x[1] == max_tp_2)
-#                            sd_tp_tups2 = statedic_of_sddic_raw2[st2][peptide]
-#                            max_tp_sd2 = max(sd_tp_tups2, key=lambda x: x[1])[1]
-#                            maxSD_2 = next(x[0] for x in sd_tp_tups2 if x[1] == max_tp_sd2)
-#                            if maxD == -99999:
-#
-#                                maxD_i = get_max_theo(peptide)
-#                                maxD = maxD_i * average_rfu
-#                                maxSD = (float(average_rfu_sd) / float(average_rfu)) * maxD
-#                            else:
-#                                maxSD = maxSD_2
-#                            Dcorrected_tups = list()
-#                            Dcorrected_sd_tups = list()
-#                            sd_tp_tups = statedic_of_sddic_raw2[state][peptide]
-#                            for uptake, timepoint in upt_tp_tups:
-#                                if uptake != -99999:
-#                                    Dcorrected = (float(uptake) / float(maxD))
-#                                    for sd, tp in sd_tp_tups:
-#                                        if tp == timepoint:
-#                                            uptake_SD = float(sd)
-#                                            break
-#                                    if uptake_SD != -99999 and uptake != 0 and maxSD != -99999:
-#                                        Dcorrected_SD_percent = np.sqrt((((uptake_SD)/(float(uptake))) ** 2) + (((maxSD)/(float(maxD))) ** 2))
-#                                        Dcorrected_SD = Dcorrected_SD_percent * Dcorrected
-#                                    else:
-#                                        Dcorrected_SD = -99999
-#                                else:
-#                                    Dcorrected = -99999
-#                                    Dcorrected_SD = -99999
-#                                Dcorrected_tups.append((Dcorrected, timepoint))
-#                                Dcorrected_sd_tups.append((Dcorrected_SD, timepoint))
-#                            pepdic_cor[peptide] = Dcorrected_tups
-#                            sddic_cor[peptide] = Dcorrected_sd_tups
-#                    if peptide not in peplist[st1] and peptide not in peplist[st2]:
-#
-#                        maxD_i = get_max_theo(peptide)
-#                        maxD = maxD_i * average_rfu
-#                        maxSD = (float(average_rfu_sd) / float(average_rfu)) * maxD
-#                        Dcorrected_tups = list()
-#                        Dcorrected_sd_tups = list()
-#                        sd_tp_tups = statedic_of_sddic_raw2[state][peptide]
-#                        for uptake, timepoint in upt_tp_tups:
-#                            if uptake != -99999:
-#                                Dcorrected = (float(uptake) / float(maxD))
-#                                for sd, tp in sd_tp_tups:
-#                                    if tp == timepoint:
-#                                        uptake_SD = float(sd)
-#                                        break
-#                                if uptake_SD != -99999 and uptake != 0 and maxSD != -99999:
-#                                    Dcorrected_SD_percent = np.sqrt((((uptake_SD)/(float(uptake))) ** 2) + (((maxSD)/(float(maxD))) ** 2))
-#                                    Dcorrected_SD = Dcorrected_SD_percent * Dcorrected
-#                                else:
-#                                    Dcorrected_SD = -99999
-#                            else:
-#                                Dcorrected = -99999
-#                                Dcorrected_SD = -99999
-#                            Dcorrected_tups.append((Dcorrected, timepoint))
-#                            Dcorrected_sd_tups.append((Dcorrected_SD, timepoint))
-#                        pepdic_cor[peptide] = Dcorrected_tups
-#                        sddic_cor[peptide] = Dcorrected_sd_tups
-#
-#
-#                statedic_of_pepdic_cor[state] = pepdic_cor
-#                statedic_of_sddic_cor[state] = sddic_cor
+
 
     if theo_bt_on_c == True:
         global back_exchange, be_label
@@ -6213,9 +6008,9 @@ def r_make_legend2(save_to_wb):
     ax.add_patch(square_7)
     if p_col_length >= 5:
         if exp_bt_on_c == True and maxD_rfu_dif_on_c == True:
-            ax.text(xpos + 1, 1.35, round(p_val_5 * 100), ha='center', va='bottom', fontsize=text_fontsize)
+            ax.text(xpos + 1, 1.35, "-" + str(round(p_val_5 * 100)), ha='center', va='bottom', fontsize=text_fontsize)
         else:
-            ax.text(xpos + 1, 1.35, p_val_5, ha='center', va='bottom', fontsize=text_fontsize)
+            ax.text(xpos + 1, 1.35, "-" + str(p_val_5), ha='center', va='bottom', fontsize=text_fontsize)
         color = assign_hex(p_col_5)
         square_8 = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
         ax.plot([xpos, xpos], [1, 1.3], color='black', linewidth=1)
@@ -6223,9 +6018,9 @@ def r_make_legend2(save_to_wb):
         ax.add_patch(square_8)
     if p_col_length >= 4:
         if exp_bt_on_c == True and maxD_rfu_dif_on_c == True:
-            ax.text(xpos + 1, 1.35, round(p_val_4 * 100), ha='center', va='bottom', fontsize=text_fontsize)
+            ax.text(xpos + 1, 1.35, "-" + str(round(p_val_4 * 100)), ha='center', va='bottom', fontsize=text_fontsize)
         else:
-            ax.text(xpos + 1, 1.35, p_val_4, ha='center', va='bottom', fontsize=text_fontsize)
+            ax.text(xpos + 1, 1.35, "-" + str(p_val_4), ha='center', va='bottom', fontsize=text_fontsize)
         color = assign_hex(p_col_4)
         square_9 = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
         ax.plot([xpos, xpos], [1, 1.3], color='black', linewidth=1)
@@ -6233,9 +6028,9 @@ def r_make_legend2(save_to_wb):
         ax.add_patch(square_9)
     if p_col_length >= 3:
         if exp_bt_on_c == True and maxD_rfu_dif_on_c == True:
-            ax.text(xpos + 1, 1.35, round(p_val_3 * 100), ha='center', va='bottom', fontsize=text_fontsize)
+            ax.text(xpos + 1, 1.35, "-" + str(round(p_val_3 * 100)), ha='center', va='bottom', fontsize=text_fontsize)
         else:
-            ax.text(xpos + 1, 1.35, p_val_3, ha='center', va='bottom', fontsize=text_fontsize)
+            ax.text(xpos + 1, 1.35, "-" + str(p_val_3), ha='center', va='bottom', fontsize=text_fontsize)
         color = assign_hex(p_col_3)
         square_10 = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
         ax.plot([xpos, xpos], [1, 1.3], color='black', linewidth=1)
@@ -6243,9 +6038,9 @@ def r_make_legend2(save_to_wb):
         ax.add_patch(square_10)
     if p_col_length >= 2:
         if exp_bt_on_c == True and maxD_rfu_dif_on_c == True:
-            ax.text(xpos + 1, 1.35, round(p_val_2 * 100), ha='center', va='bottom', fontsize=text_fontsize)
+            ax.text(xpos + 1, 1.35, "-" + str(round(p_val_2 * 100)), ha='center', va='bottom', fontsize=text_fontsize)
         else:
-            ax.text(xpos + 1, 1.35, p_val_2, ha='center', va='bottom', fontsize=text_fontsize)
+            ax.text(xpos + 1, 1.35, "-" + str(p_val_2), ha='center', va='bottom', fontsize=text_fontsize)
         color = assign_hex(p_col_2)
         square_11 = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
         ax.plot([xpos, xpos], [1, 1.3], color='black', linewidth=1)
@@ -6253,9 +6048,9 @@ def r_make_legend2(save_to_wb):
         ax.add_patch(square_11)
     if p_col_length >= 1:
         if exp_bt_on_c == True and maxD_rfu_dif_on_c == True:
-            ax.text(xpos + 1, 1.35, round(p_val_1 * 100), ha='center', va='bottom', fontsize=text_fontsize)
+            ax.text(xpos + 1, 1.35, "-" + str(round(p_val_1 * 100)), ha='center', va='bottom', fontsize=text_fontsize)
         else:
-            ax.text(xpos + 1, 1.35, p_val_1, ha='center', va='bottom', fontsize=text_fontsize)
+            ax.text(xpos + 1, 1.35, "-" + str(p_val_1), ha='center', va='bottom', fontsize=text_fontsize)
         color = assign_hex(p_col_1)
         square_12 = patches.Rectangle((xpos, 0), 1, 1, linewidth=1, edgecolor='black', facecolor=color)
         ax.add_patch(square_12)
@@ -6931,7 +6726,271 @@ def r_difmaps():
                 if sheet_name in wb.sheetnames:
                     del wb[sheet_name]
         
+def convert_time(value):
+    if value < 1:
+        return f"{int(value*60)} seconds"
+    elif value > 59 and value < 61:
+        return "1 hour"
+    elif value > 59 and value % 60 < 1:
+        return f"{int(value/60)} hours"
+    elif value == 1:
+        return "1 minute"
+    else:
+        return f"{int(value)} minutes"      
+           
         
+        
+        
+        
+        
+def r_PCA(): 
+    try:
+        temp_folder_path = tempfile.mkdtemp()
+        for protein, statelist in protein_states.items():
+            PCA_peptide_list = coincident_protein_peptides[protein]
+
+            common_timepoints = set(s_timepoints[statelist[0]])
+            for state in statelist[1:]:
+                common_timepoints &= set(s_timepoints[state])
+            common_timepoints = list(common_timepoints)
+            common_timepoints = [tp for tp in common_timepoints if tp != 0.0]
+
+            sorted_peptides = sorted(PCA_peptide_list)
+            sorted_timepoints = sorted(common_timepoints)
+            
+            if len(common_timepoints) == 0 or len(sorted_peptides) == 0 or len(statelist) < 2:
+                continue
+
+            PCA_matrix = np.zeros((len(statelist), len(PCA_peptide_list) * len(common_timepoints)))
+            for i, state in enumerate(statelist):
+                row = []
+                for peptide in sorted_peptides:
+                    uptake_time_list = statedic_of_pepdic_cor[state][peptide]
+                    timepoint_dict = {tp: up for up, tp in uptake_time_list}
+                    for tp in sorted_timepoints:
+                        uptake = timepoint_dict.get(tp, np.nan)
+                        if uptake == -99999:
+                            uptake = np.nan 
+                        row.append(uptake)
+                PCA_matrix[i, :] = row
+
+            imputer = SimpleImputer(strategy='mean')
+            X_imputed = imputer.fit_transform(PCA_matrix)
+            scaler = StandardScaler()
+            X_scaled = scaler.fit_transform(X_imputed)
+            pca = PCA(n_components=2)
+            X_pca = pca.fit_transform(X_scaled)
+
+            plt.figure(figsize=(6, 5))
+            plt.scatter(X_pca[:, 0], X_pca[:, 1])
+
+            for i, label in enumerate(statelist):
+                plt.text(X_pca[i, 0], X_pca[i, 1], label)
+
+            plt.xlabel("PC1")
+            plt.ylabel("PC2")
+            plt.title(f"PCA of {protein}")
+            plt.grid(True)
+            plt.tight_layout()
+            plt.savefig(f'{temp_folder_path}/{protein}.png', dpi=500)
+            
+        increase_progress(2)
+        return temp_folder_path
+    
+    except Exception as e:
+        error_message = traceback.format_exc() 
+        print(error_message)
+        tk.messagebox.showerror("Unknown Error in PCA Plot", error_message)
+        return None
+
+   
+    
+def r_butterfly_dif():
+    
+    try:
+        temp_folder_path = tempfile.mkdtemp()
+        for stt, pair in new_dic_of_dif_list.items():
+            plot_values = []
+            pepnum_asterisks = {}
+            pepnum_starts = {}
+            pepnum_ends = {}
+            tnum_timepoints = {}
+            asterisk_in_state = False
+            asterisk_in_start = False
+            first = pair[0]
+            second = pair[1]
+            protein_one = first.split("~")[0]
+            protein_two = second.split("~")[0]
+            sorted_peptides_first = sorted(peplist[first], key=lambda x: (int(pro_peptide_starts.get((x[0], x[1]), [0])[0]), len(x[1])))
+            sorted_peptides_second = sorted(peplist[second], key=lambda x: (int(pro_peptide_starts.get((x[0], x[1]), [0])[0]), len(x[1])))
+            difname = f"{stt}"
+
+            pepset = set(peplist[first] + peplist[second])
+            pepset_peptide_starts = {}
+            for peptide in pepset:
+                pepset_peptide_starts[peptide] = pro_peptide_starts.get((protein_one, peptide))
+                if pepset_peptide_starts[peptide] == None:
+                    pepset_peptide_starts[peptide] = pro_peptide_starts.get((protein_two, peptide))
+            all_sorted_peptides = sorted(pepset, key=lambda p: (int(pepset_peptide_starts.get(p, [0])[0]), len(p)))
+
+            pepnum = 0
+            for peptide in all_sorted_peptides:
+                if peptide in peplist[first] and peptide in peplist[second]:
+                    startvalues = pro_peptide_starts.get((protein_one, peptide), None)
+                    startvalue= int(startvalues[0])
+                    endvalues = pro_peptide_ends.get((protein_one, peptide), None)
+                    endvalue = int(endvalues[0])
+
+                    startvalues2 = pro_peptide_starts.get((protein_two, peptide), None)
+                    startvalue2 = int(startvalues2[0])
+
+                    pepnum_starts[pepnum] = startvalue
+                    pepnum_ends[pepnum] = endvalue
+
+
+                    tnum = 0
+                    for timepoint in s_timepoints[first]:
+                        if timepoint in s_timepoints[second]:
+                            if tnum not in tnum_timepoints.keys():
+                                tnum_timepoints[tnum] = timepoint
+                            if timepoint == 0:
+                                tnum = tnum + 1
+                                continue 
+                            if exp_bt_on_c and maxD_rfu_dif_on_c == True:
+                                if statedic_of_pepdic_cor[first][peptide][tnum][0] != -99999 and statedic_of_pepdic_cor[second][peptide][tnum][0] != -99999:
+                                    plot_value = (pepnum, tnum, statedic_of_pepdic_cor[first][peptide][tnum][0] - statedic_of_pepdic_cor[second][peptide][tnum][0])
+                                    plot_values.append(plot_value)
+                                    tnum = tnum + 1
+                                else:
+                                    tnum = tnum + 1
+
+                            if exp_bt_on_c and maxD_Da_dif_on_c == True:
+                                if statedic_of_pepdic_cor[first][peptide][tnum][0] != -99999 and statedic_of_pepdic_cor[second][peptide][tnum][0] != -99999:
+                                    max_theo = get_max_theo(peptide)
+                                    plot_value = (pepnum, tnum, max_theo*(statedic_of_pepdic_cor[first][peptide][tnum][0] - statedic_of_pepdic_cor[second][peptide][tnum][0]))
+                                    plot_values.append(plot_value)
+                                    tnum = tnum + 1
+                                else:
+                                    tnum = tnum + 1
+
+                            if theo_bt_on_c and back_exchange == 0:
+                                if statedic_of_pepdic_raw2[first][peptide][tnum][0] != -99999 and statedic_of_pepdic_raw2[second][peptide][tnum][0] != -99999:
+                                    plot_value = (pepnum, tnum, statedic_of_pepdic_raw2[first][peptide][tnum][0] - statedic_of_pepdic_raw2[second][peptide][tnum][0])
+                                    plot_values.append(plot_value)
+                                    tnum = tnum + 1
+                                else:
+                                    tnum = tnum + 1
+
+                            if theo_bt_on_c and back_exchange != 0:
+                                if statedic_of_pepdic_cor[first][peptide][tnum][0] != -99999 and statedic_of_pepdic_cor[second][peptide][tnum][0] != -99999:
+                                    max_theo = get_max_theo(peptide)
+                                    plot_value = (pepnum, tnum, max_theo*(statedic_of_pepdic_cor[first][peptide][tnum][0] - statedic_of_pepdic_cor[second][peptide][tnum][0]))
+                                    plot_values.append(plot_value)
+                                    tnum = tnum + 1
+                                else:
+                                    tnum = tnum + 1
+
+                    ch1 = False
+                    ch2 = False
+                    try:
+                        if noD_dic_states[first][peptide] == True:
+                            ch1 = True
+                    except:
+                        pass
+                    try:
+                        if noD_dic_states[second][peptide] == True:
+                            ch2 = True
+                    except:
+                        pass
+                    if ch1 == True or ch2 == True:
+                        pepnum_asterisks[pepnum] = True
+                    else: 
+                        pepnum_asterisks[pepnum] = False
+                        asterisk_in_state = True
+
+                    pepnum = pepnum + 1
+
+
+            series_data = {}
+            for x, series, y in plot_values:
+                series = convert_time(tnum_timepoints[series])
+                if series not in series_data:
+                    series_data[series] = {'x': [], 'y': []}
+                series_data[series]['x'].append(x)
+                series_data[series]['y'].append(y)
+
+            plt.figure(figsize=(8, 6))
+            plt.axhline(0, color='black', linewidth=1)
+
+
+            for series, coords in series_data.items():
+                sorted_points = sorted(zip(coords['x'], coords['y']))
+                xs, ys = zip(*sorted_points)
+                xs = np.array(xs)
+                ys = np.array(ys)
+
+                plt.scatter(xs, ys, s=20)  
+
+                if len(xs) > 1:
+                    x_smooth = np.linspace(xs.min(), xs.max(), 300)
+                    pchip = PchipInterpolator(xs, ys)
+                    y_smooth = pchip(x_smooth)
+                    plt.plot(x_smooth, y_smooth, label=f'{series}')
+                else:
+                    plt.plot(xs, ys, label=f'{series}')
+
+            xtick_positions = xtick_positions = list(range(len(pepnum_starts)))
+            xtick_labels = [f"{pepnum_starts[i]}-{pepnum_ends[i]}" if not pepnum_asterisks[i] else f"{pepnum_starts[i]}-{pepnum_ends[i]}*" for i in xtick_positions]
+            plt.xticks(xtick_positions, xtick_labels, rotation=90, fontsize=8)
+
+
+
+            max_absolute_value_difference = max(abs(tup[2]) for tup in plot_values)
+
+            plt.xlabel('Peptide Fragments')
+            if exp_bt_on_c and maxD_rfu_dif_on_c == True:
+                plt.ylabel('\u0394' + " RFU")
+                ymax = math.ceil(max_absolute_value_difference / 0.5) * 0.5
+                plt.ylim(-ymax, ymax)
+            else:
+                plt.ylabel('\u0394' + "D")
+                ymax = math.ceil(max_absolute_value_difference / 0.5) * 0.5
+                plt.ylim(-ymax, ymax)
+            plt.title(difname)
+            plt.grid(True, axis='y')
+            legend = plt.legend()
+            legend.remove()
+            plt.tight_layout()
+
+            plt.savefig(f'{temp_folder_path}/{difname}.png', dpi=500)
+
+            legend_fig = plt.figure()
+            ax = legend_fig.add_subplot(111)
+            ax.legend(handles=legend.legend_handles, labels=[text.get_text() for text in legend.get_texts()], loc='center')
+            ax.axis('off')
+            legend_fig.patch.set_visible(False)
+
+            legend_filename = f'{temp_folder_path}/{difname}_legend.png'
+            legend_fig.savefig(legend_filename, dpi=500, bbox_inches='tight', pad_inches=0.1)
+
+        increase_progress(2)
+        return temp_folder_path
+    
+    
+    except Exception as e:
+        error_message = traceback.format_exc() 
+        print(error_message)
+        tk.messagebox.showerror("Unknown Error in Butterfly Plot", error_message)
+        return None
+
+
+
+        
+    
+    
+    
+    
+    
 def r_chiclet():
     function_worksheet_names = []
     try:
@@ -7072,24 +7131,42 @@ def r_coincident_chiclet():
         ws = wb.create_sheet("Coincident Chiclets")
         function_worksheet_names.append("Coincident Chiclets")
         plot_number = 0
+        coincident_chiclet_done_proteins = {}
         for state in states:
+            just_added = False
             asterisk_in_state = False
             if plot_number == 0:
                 plot_start = 1
                 plot_end = 50
             if plot_number > 0:
-                plot_start = ws.max_column + 3
+                plot_start = ws.max_column + 1
                 plot_end = ws.max_column + 50
-            ws.cell(row=1, column=plot_start, value=state)
-            ws.cell(row=2, column=plot_start, value = "Sequence")
-            ws.cell(row=2, column=plot_start+1, value = "Start")
-            ws.cell(row=2, column=plot_start+2, value = "End")
+            if state.split("~")[0] not in coincident_chiclet_done_proteins.keys():
+                plot_start +=1
+                just_added = True
+                coincident_chiclet_done_proteins[state.split("~")[0]] = True
+                ws.cell(row=2, column=plot_start, value = "Sequence")
+                ws.cell(row=2, column=plot_start+1, value = "Start")
+                ws.cell(row=2, column=plot_start+2, value = "End")
+            if just_added == True:
+                ws.cell(row=1, column=plot_start+4, value=state)
+            else:
+                ws.cell(row=1, column=plot_start+1, value=state)
             tpnum = 0
+            no_zero_timepoint = False
             for timepoint in s_timepoints[state]:
                 if timepoint == 0:
                     tpnum = tpnum + 1
                     continue
-                ws.cell(row=2, column=plot_start+3+tpnum, value = s_timepoints[state][tpnum])
+                if tpnum == 0:
+                    no_zero_timepoint = True
+                if just_added == True:
+                    ws.cell(row=2, column=plot_start+3+tpnum, value = s_timepoints[state][tpnum])
+                else:
+                    if no_zero_timepoint == False:
+                        ws.cell(row=2, column=plot_start+tpnum, value = s_timepoints[state][tpnum])
+                    else:
+                        ws.cell(row=2, column=plot_start+1+tpnum, value = s_timepoints[state][tpnum])
                 tpnum = tpnum + 1
 
             protein = state.split("~")[0]
@@ -7101,29 +7178,51 @@ def r_coincident_chiclet():
                 startvalue= int(startvalues[0]) 
                 endvalues = pro_peptide_ends.get((protein, peptide), None)
                 endvalue = int(endvalues[0])
-
-                ws.cell(row=3+pepnum, column=plot_start, value = peptide)
-                ws.cell(row=3+pepnum, column=plot_start+1, value = startvalue)
-                ws.cell(row=3+pepnum, column=plot_start+2, value = endvalue)
+                
+                if just_added == True:
+                    ws.cell(row=3+pepnum, column=plot_start, value = peptide)
+                    ws.cell(row=3+pepnum, column=plot_start+1, value = startvalue)
+                    ws.cell(row=3+pepnum, column=plot_start+2, value = endvalue)
                 tnum = 0
                 for timepoint in s_timepoints[state]:
                     if timepoint == 0:
                         tnum = tnum + 1
                         continue
-                    ws.cell(row=3+pepnum, column=plot_start+3+tnum, value=statedic_of_pepdic_cor[state][peptide][tnum][0])
+                    if just_added == True:
+                        ws.cell(row=3+pepnum, column=plot_start+3+tnum, value=statedic_of_pepdic_cor[state][peptide][tnum][0])
+                    else:
+                        if no_zero_timepoint == False:
+                            ws.cell(row=3+pepnum, column=plot_start+tnum, value=statedic_of_pepdic_cor[state][peptide][tnum][0])
+                        else:
+                            ws.cell(row=3+pepnum, column=plot_start+1+tnum, value=statedic_of_pepdic_cor[state][peptide][tnum][0])
                     tnum = tnum + 1
                 try:
                     if noD_dic_states[state][peptide] == True:
-                        ws.cell(row=3+pepnum, column=plot_start+3+tnum, value="*")
+                        if just_added == True:
+                            ws.cell(row=3+pepnum, column=plot_start+3+tnum, value="*")
+                        else:
+                            if no_zero_timepoint == False:
+                                ws.cell(row=3+pepnum, column=plot_start+tnum, value="*")
+                            else:
+                                ws.cell(row=3+pepnum, column=plot_start+1+tnum, value="*")
                         asterisk_in_state = True
                 except:
                     pass
                 pepnum = pepnum + 1
 
             if asterisk_in_state == True:
-                ws.cell(row=7+pepnum, column=plot_start+3+tnum, value="* = no maxD for peptide")
-                ws.cell(row=8+pepnum, column=plot_start+3+tnum, value="average back exchange used")
-            ws.column_dimensions[get_column_letter(plot_start)].width = 30
+                if just_added == True:
+                    ws.cell(row=7+pepnum, column=plot_start+3+tnum, value="* = no maxD for peptide")
+                    ws.cell(row=8+pepnum, column=plot_start+3+tnum, value="average back exchange used")
+                else:
+                    if no_zero_timepoint == False:
+                        ws.cell(row=7+pepnum, column=plot_start+tnum, value="* = no maxD for peptide")
+                        ws.cell(row=8+pepnum, column=plot_start+tnum, value="average back exchange used")
+                    else:
+                        ws.cell(row=7+pepnum, column=plot_start+1+tnum, value="* = no maxD for peptide")
+                        ws.cell(row=8+pepnum, column=plot_start+1+tnum, value="average back exchange used")
+            if just_added == True:
+                ws.column_dimensions[get_column_letter(plot_start)].width = 30
             plot_number = plot_number + 1
 
 
@@ -7198,6 +7297,7 @@ def r_coincident_chiclet():
                     del wb[sheet_name]
 
 def r_chicdif():
+    
     function_worksheet_names = []
     try:
         ws = wb.create_sheet("Chiclet Differences")
@@ -7224,13 +7324,17 @@ def r_chicdif():
             ws.cell(row=2, column=plot_start+1, value = "Start")
             ws.cell(row=2, column=plot_start+2, value = "End")
             tpnum = 0
-            for timepoint in s_timepoints[first]:
-                if timepoint in s_timepoints[second]:
-                    if timepoint == 0:
-                        tpnum = tpnum + 1
-                        continue
-                    ws.cell(row=2, column=plot_start+3+tpnum, value = s_timepoints[first][tpnum])
+
+            
+            common_timepoints = sorted(set(s_timepoints[first]) & set(s_timepoints[second]))
+
+            
+            for timepoint in common_timepoints:
+                if timepoint == 0:
                     tpnum = tpnum + 1
+                    continue
+                ws.cell(row=2, column=plot_start+3+tpnum, value = common_timepoints[tpnum])
+                tpnum = tpnum + 1
 
 
 
@@ -7241,7 +7345,6 @@ def r_chicdif():
                 if pepset_peptide_starts[peptide] == None:
                     pepset_peptide_starts[peptide] = pro_peptide_starts.get((protein_two, peptide))
             all_sorted_peptides = sorted(pepset, key=lambda p: (int(pepset_peptide_starts.get(p, [0])[0]), len(p)))
-
 
 
             pepnum = 0
@@ -7270,46 +7373,97 @@ def r_chicdif():
                         asterisk_in_start = True
                     else:
                         ws.cell(row=3+pepnum, column=plot_start+2, value = endvalue)
-                    tnum = 0
-                    for timepoint in s_timepoints[first]:
-                        if timepoint in s_timepoints[second]:
-                            if timepoint == 0:
-                                tnum = tnum + 1
-                                continue 
-                            if exp_bt_on_c and maxD_rfu_dif_on_c == True:
-                                if statedic_of_pepdic_cor[first][peptide][tnum][0] != -99999 and statedic_of_pepdic_cor[second][peptide][tnum][0] != -99999:
-                                    ws.cell(row=3+pepnum, column=plot_start+3+tnum, value=statedic_of_pepdic_cor[first][peptide][tnum][0] - statedic_of_pepdic_cor[second][peptide][tnum][0])
-                                    tnum = tnum + 1
-                                else:
-                                    ws.cell(row=3+pepnum, column=plot_start+3+tnum, value = -99999)
-                                    tnum = tnum + 1
+                        
+                    for tnum, timepoint in enumerate(common_timepoints):
+                        if timepoint == 0:
+                            continue 
+                        
+                        if exp_bt_on_c and maxD_rfu_dif_on_c == True:
+                            up1 = None
+                            up2 = None
+                            diftake = None
 
-                            if exp_bt_on_c and maxD_Da_dif_on_c == True:
-                                if statedic_of_pepdic_cor[first][peptide][tnum][0] != -99999 and statedic_of_pepdic_cor[second][peptide][tnum][0] != -99999:
+                            try:
+                                for up, tp in statedic_of_pepdic_cor[first][peptide]:
+                                    if tp == timepoint:
+                                        up1 = up
+                                for up, tp in statedic_of_pepdic_cor[second][peptide]:
+                                    if tp == timepoint:
+                                        up2 = up
+                                if up1 is not None and up2 is not None and up1 != -99999 and up2 != -99999:
+                                    diftake = up1 - up2
+                                elif up1 is not None and up2 is not None:
+                                    diftake = -99999
+                                ws.cell(row=3+pepnum, column=plot_start+3+tnum, value=diftake)
+
+                            except:
+                                ws.cell(row=3+pepnum, column=plot_start+3+tnum, value=-99999)
+                            
+
+                        if exp_bt_on_c and maxD_Da_dif_on_c == True: 
+                            up1 = None
+                            up2 = None
+                            diftake = None
+
+                            try:
+                                for up, tp in statedic_of_pepdic_cor[first][peptide]:
+                                    if tp == timepoint:
+                                        up1 = up
+                                for up, tp in statedic_of_pepdic_cor[second][peptide]:
+                                    if tp == timepoint:
+                                        up2 = up
+                                if up1 is not None and up2 is not None and up1 != -99999 and up2 != -99999:
                                     max_theo = get_max_theo(peptide)
-                                    ws.cell(row=3+pepnum, column=plot_start+3+tnum, value=max_theo*(statedic_of_pepdic_cor[first][peptide][tnum][0] - statedic_of_pepdic_cor[second][peptide][tnum][0]))
-                                    tnum = tnum + 1
-                                else:
-                                    ws.cell(row=3+pepnum, column=plot_start+3+tnum, value = -99999)
-                                    tnum = tnum + 1
+                                    diftake = max_theo * (up1 - up2)
+                                elif up1 is not None and up2 is not None:
+                                    diftake = -99999
+                                ws.cell(row=3+pepnum, column=plot_start+3+tnum, value = diftake)
 
-                            if theo_bt_on_c and back_exchange == 0:
-                                if statedic_of_pepdic_raw2[first][peptide][tnum][0] != -99999 and statedic_of_pepdic_raw2[second][peptide][tnum][0] != -99999:
-                                    ws.cell(row=3+pepnum, column=plot_start+3+tnum, value=statedic_of_pepdic_raw2[first][peptide][tnum][0] - statedic_of_pepdic_raw2[second][peptide][tnum][0])
-                                    tnum = tnum + 1
-                                else:
-                                    ws.cell(row=3+pepnum, column=plot_start+3+tnum, value = -99999)
-                                    tnum = tnum + 1
+                            except:
+                                ws.cell(row=3+pepnum, column=plot_start+3+tnum, value = -99999)
+                            
 
-                            if theo_bt_on_c and back_exchange != 0:
-                                if statedic_of_pepdic_cor[first][peptide][tnum][0] != -99999 and statedic_of_pepdic_cor[second][peptide][tnum][0] != -99999:
-                                    max_theo = get_max_theo(peptide)
-                                    ws.cell(row=3+pepnum, column=plot_start+3+tnum, value=max_theo*(statedic_of_pepdic_cor[first][peptide][tnum][0] - statedic_of_pepdic_cor[second][peptide][tnum][0]))
-                                    tnum = tnum + 1
-                                else:
-                                    ws.cell(row=3+pepnum, column=plot_start+3+tnum, value = -99999)
-                                    tnum = tnum + 1
+                        if theo_bt_on_c and back_exchange == 0:
+                            up1 = None
+                            up2 = None
+                            diftake = None
+                            try:
+                                for up, tp in statedic_of_pepdic_raw2[first][peptide]:
+                                    if tp == timepoint:
+                                        up1 = up
+                                for up, tp in statedic_of_pepdic_raw2[second][peptide]:
+                                    if tp == timepoint:
+                                        up2 = up
+                                if up1 is not None and up2 is not None and up1 != -99999 and up2 != -99999:
+                                    diftake = up1 - up2
+                                elif up1 is not None and up2 is not None:
+                                    diftake = -99999
+                                ws.cell(row=3+pepnum, column=plot_start+3+tnum, value = diftake)
+                            except:
+                                ws.cell(row=3+pepnum, column=plot_start+3+tnum, value = -99999)
+                            
 
+                        if theo_bt_on_c and back_exchange != 0:
+                            up1 = None
+                            up2 = None
+                            diftake = None
+                            try:
+                                for up, tp in statedic_of_pepdic_cor[first][peptide]:
+                                    if tp == timepoint:
+                                        up1 = up
+                                for up, tp in statedic_of_pepdic_cor[second][peptide]:
+                                    if tp == timepoint:
+                                        up2 = up
+                                max_theo = get_max_theo(peptide)
+                                if up1 is not None and up2 is not None and up1 != -99999 and up2 != -99999:
+                                    diftake = max_theo * (up1 - up2)
+                                elif up1 is not None and up2 is not None:
+                                    diftake = -99999
+                                ws.cell(row=3+pepnum, column=plot_start+3+tnum, value = diftake)
+                            except:
+                                ws.cell(row=3+pepnum, column=plot_start+3+tnum, value = -99999)    
+                    tnum += 1
+                    
                     ch1 = False
                     ch2 = False
                     try:
@@ -7473,15 +7627,18 @@ def r_coincident_chicdif():
             ws.cell(row=2, column=plot_start, value = "Sequence")
             ws.cell(row=2, column=plot_start+1, value = "Start")
             ws.cell(row=2, column=plot_start+2, value = "End")
+            
+            
             tpnum = 0
-            for timepoint in s_timepoints[first]:
-                if timepoint in s_timepoints[second]:
-                    if timepoint == 0:
-                        tpnum = tpnum + 1
-                        continue
-                    ws.cell(row=2, column=plot_start+3+tpnum, value = s_timepoints[first][tpnum])
-                    tpnum = tpnum + 1
+            common_timepoints = sorted(set(s_timepoints[first]) & set(s_timepoints[second]))
 
+            
+            for timepoint in common_timepoints:
+                if timepoint == 0:
+                    tpnum = tpnum + 1
+                    continue
+                ws.cell(row=2, column=plot_start+3+tpnum, value = common_timepoints[tpnum])
+                tpnum = tpnum + 1
 
 
             pepset = set(coincident_protein_peptides[protein_one] + coincident_protein_peptides[protein_two])
@@ -7520,45 +7677,143 @@ def r_coincident_chicdif():
                         asterisk_in_start = True
                     else:
                         ws.cell(row=3+pepnum, column=plot_start+2, value = endvalue)
-                    tnum = 0
-                    for timepoint in s_timepoints[first]:
-                        if timepoint in s_timepoints[second]:
-                            if timepoint == 0:
-                                tnum = tnum + 1
-                                continue 
-                            if exp_bt_on_c and maxD_rfu_dif_on_c == True:
-                                if statedic_of_pepdic_cor[first][peptide][tnum][0] != -99999 and statedic_of_pepdic_cor[second][peptide][tnum][0] != -99999:
-                                    ws.cell(row=3+pepnum, column=plot_start+3+tnum, value=statedic_of_pepdic_cor[first][peptide][tnum][0] - statedic_of_pepdic_cor[second][peptide][tnum][0])
-                                    tnum = tnum + 1
-                                else:
-                                    ws.cell(row=3+pepnum, column=plot_start+3+tnum, value = -99999)
-                                    tnum = tnum + 1
+                        
+                        
+                        
+                    
+                    for tnum, timepoint in enumerate(common_timepoints):
+                        if timepoint == 0:
+                            continue 
+                        
+                        if exp_bt_on_c and maxD_rfu_dif_on_c == True:
+                            up1 = None
+                            up2 = None
+                            diftake = None
 
-                            if exp_bt_on_c and maxD_Da_dif_on_c == True:
-                                if statedic_of_pepdic_cor[first][peptide][tnum][0] != -99999 and statedic_of_pepdic_cor[second][peptide][tnum][0] != -99999:
+                            try:
+                                for up, tp in statedic_of_pepdic_cor[first][peptide]:
+                                    if tp == timepoint:
+                                        up1 = up
+                                for up, tp in statedic_of_pepdic_cor[second][peptide]:
+                                    if tp == timepoint:
+                                        up2 = up
+                                if up1 is not None and up2 is not None and up1 != -99999 and up2 != -99999:
+                                    diftake = up1 - up2
+                                elif up1 is not None and up2 is not None:
+                                    diftake = -99999
+                                ws.cell(row=3+pepnum, column=plot_start+3+tnum, value=diftake)
+
+                            except:
+                                ws.cell(row=3+pepnum, column=plot_start+3+tnum, value=-99999)
+                            
+
+                        if exp_bt_on_c and maxD_Da_dif_on_c == True: 
+                            up1 = None
+                            up2 = None
+                            diftake = None
+
+                            try:
+                                for up, tp in statedic_of_pepdic_cor[first][peptide]:
+                                    if tp == timepoint:
+                                        up1 = up
+                                for up, tp in statedic_of_pepdic_cor[second][peptide]:
+                                    if tp == timepoint:
+                                        up2 = up
+                                if up1 is not None and up2 is not None and up1 != -99999 and up2 != -99999:
                                     max_theo = get_max_theo(peptide)
-                                    ws.cell(row=3+pepnum, column=plot_start+3+tnum, value=max_theo*(statedic_of_pepdic_cor[first][peptide][tnum][0] - statedic_of_pepdic_cor[second][peptide][tnum][0]))
-                                    tnum = tnum + 1
-                                else:
-                                    ws.cell(row=3+pepnum, column=plot_start+3+tnum, value = -99999)
-                                    tnum = tnum + 1
+                                    diftake = max_theo * (up1 - up2)
+                                elif up1 is not None and up2 is not None:
+                                    diftake = -99999
+                                ws.cell(row=3+pepnum, column=plot_start+3+tnum, value = diftake)
 
-                            if theo_bt_on_c and back_exchange == 0:
-                                if statedic_of_pepdic_raw2[first][peptide][tnum][0] != -99999 and statedic_of_pepdic_raw2[second][peptide][tnum][0] != -99999:
-                                    ws.cell(row=3+pepnum, column=plot_start+3+tnum, value=statedic_of_pepdic_raw2[first][peptide][tnum][0] - statedic_of_pepdic_raw2[second][peptide][tnum][0])
-                                    tnum = tnum + 1
-                                else:
-                                    ws.cell(row=3+pepnum, column=plot_start+3+tnum, value = -99999)
-                                    tnum = tnum + 1
+                            except:
+                                ws.cell(row=3+pepnum, column=plot_start+3+tnum, value = -99999)
+                            
 
-                            if theo_bt_on_c and back_exchange != 0:
-                                if statedic_of_pepdic_cor[first][peptide][tnum][0] != -99999 and statedic_of_pepdic_cor[second][peptide][tnum][0] != -99999:
-                                    max_theo = get_max_theo(peptide)
-                                    ws.cell(row=3+pepnum, column=plot_start+3+tnum, value=max_theo*(statedic_of_pepdic_cor[first][peptide][tnum][0] - statedic_of_pepdic_cor[second][peptide][tnum][0]))
-                                    tnum = tnum + 1
-                                else:
-                                    ws.cell(row=3+pepnum, column=plot_start+3+tnum, value = -99999)
-                                    tnum = tnum + 1
+                        if theo_bt_on_c and back_exchange == 0:
+                            up1 = None
+                            up2 = None
+                            diftake = None
+                            try:
+                                for up, tp in statedic_of_pepdic_raw2[first][peptide]:
+                                    if tp == timepoint:
+                                        up1 = up
+                                for up, tp in statedic_of_pepdic_raw2[second][peptide]:
+                                    if tp == timepoint:
+                                        up2 = up
+                                if up1 is not None and up2 is not None and up1 != -99999 and up2 != -99999:
+                                    diftake = up1 - up2
+                                elif up1 is not None and up2 is not None:
+                                    diftake = -99999
+                                ws.cell(row=3+pepnum, column=plot_start+3+tnum, value = diftake)
+                            except:
+                                ws.cell(row=3+pepnum, column=plot_start+3+tnum, value = -99999)
+                            
+
+                        if theo_bt_on_c and back_exchange != 0:
+                            up1 = None
+                            up2 = None
+                            diftake = None
+                            try:
+                                for up, tp in statedic_of_pepdic_cor[first][peptide]:
+                                    if tp == timepoint:
+                                        up1 = up
+                                for up, tp in statedic_of_pepdic_cor[second][peptide]:
+                                    if tp == timepoint:
+                                        up2 = up
+                                max_theo = get_max_theo(peptide)
+                                if up1 is not None and up2 is not None and up1 != -99999 and up2 != -99999:
+                                    diftake = max_theo * (up1 - up2)
+                                elif up1 is not None and up2 is not None:
+                                    diftake = -99999
+                                ws.cell(row=3+pepnum, column=plot_start+3+tnum, value = diftake)
+                            except:
+                                ws.cell(row=3+pepnum, column=plot_start+3+tnum, value = -99999)    
+                    tnum += 1
+                    
+                    
+                    
+                        
+                    
+#                    tnum = 0
+#                    for timepoint in s_timepoints[first]:
+#                        if timepoint in s_timepoints[second]:
+#                            if timepoint == 0:
+#                                tnum = tnum + 1
+#                                continue 
+#                            if exp_bt_on_c and maxD_rfu_dif_on_c == True:
+#                                if statedic_of_pepdic_cor[first][peptide][tnum][0] != -99999 and statedic_of_pepdic_cor[second][peptide][tnum][0] != -99999:
+#                                    ws.cell(row=3+pepnum, column=plot_start+3+tnum, value=statedic_of_pepdic_cor[first][peptide][tnum][0] - statedic_of_pepdic_cor[second][peptide][tnum][0])
+#                                    tnum = tnum + 1
+#                                else:
+#                                    ws.cell(row=3+pepnum, column=plot_start+3+tnum, value = -99999)
+#                                    tnum = tnum + 1
+#
+#                            if exp_bt_on_c and maxD_Da_dif_on_c == True:
+#                                if statedic_of_pepdic_cor[first][peptide][tnum][0] != -99999 and statedic_of_pepdic_cor[second][peptide][tnum][0] != -99999:
+#                                    max_theo = get_max_theo(peptide)
+#                                    ws.cell(row=3+pepnum, column=plot_start+3+tnum, value=max_theo*(statedic_of_pepdic_cor[first][peptide][tnum][0] - statedic_of_pepdic_cor[second][peptide][tnum][0]))
+#                                    tnum = tnum + 1
+#                                else:
+#                                    ws.cell(row=3+pepnum, column=plot_start+3+tnum, value = -99999)
+#                                    tnum = tnum + 1
+#
+#                            if theo_bt_on_c and back_exchange == 0:
+#                                if statedic_of_pepdic_raw2[first][peptide][tnum][0] != -99999 and statedic_of_pepdic_raw2[second][peptide][tnum][0] != -99999:
+#                                    ws.cell(row=3+pepnum, column=plot_start+3+tnum, value=statedic_of_pepdic_raw2[first][peptide][tnum][0] - statedic_of_pepdic_raw2[second][peptide][tnum][0])
+#                                    tnum = tnum + 1
+#                                else:
+#                                    ws.cell(row=3+pepnum, column=plot_start+3+tnum, value = -99999)
+#                                    tnum = tnum + 1
+#
+#                            if theo_bt_on_c and back_exchange != 0:
+#                                if statedic_of_pepdic_cor[first][peptide][tnum][0] != -99999 and statedic_of_pepdic_cor[second][peptide][tnum][0] != -99999:
+#                                    max_theo = get_max_theo(peptide)
+#                                    ws.cell(row=3+pepnum, column=plot_start+3+tnum, value=max_theo*(statedic_of_pepdic_cor[first][peptide][tnum][0] - statedic_of_pepdic_cor[second][peptide][tnum][0]))
+#                                    tnum = tnum + 1
+#                                else:
+#                                    ws.cell(row=3+pepnum, column=plot_start+3+tnum, value = -99999)
+#                                    tnum = tnum + 1
 
                     ch1 = False
                     ch2 = False
@@ -8053,7 +8308,7 @@ def r_condpeps():
                     del wb[sheet_name]
                 
 def r_difcond():
-    function_worksheet_titles = []
+    function_worksheet_names = []
     try:
         array_col = 1
         array = np.zeros((77,53))
@@ -8070,7 +8325,7 @@ def r_difcond():
             difname = f"{stt}"
             ws_title = (f"{difname}" + "_cond")
             ws = wb.create_sheet(title=ws_title)
-            function_worksheet_titles.append(ws_title)
+            function_worksheet_names.append(ws_title)
             cell_reference_list = list()
             ws.append(["Timepoint"])
             ws.append([" "] + seqlist_dic[first] + [" "])
@@ -8091,7 +8346,7 @@ def r_difcond():
                             endvalue = int(endvalues[0]) - seq_start[first]
                             peptide_length = len(peptide)
                             diftake = None
-                            if exp_bt_on_c == True and maxD_rfu_dif_on_c == True:
+                            if exp_bt_on_c == True and maxD_rfu_dif_on_c == True: 
                                 up1 = None
                                 up2 = None
                                 diftake = None
@@ -8115,7 +8370,6 @@ def r_difcond():
                                     SD1 = None
                                     SD2 = None
                                     diftake_SD = None
-                                    print("\n\n")
                                     for sd, tp in statedic_of_sddic_cor[first][peptide]:
                                         if tp == timepoint:
                                             SD1 = sd
@@ -8136,7 +8390,6 @@ def r_difcond():
                                 up1 = None
                                 up2 = None
                                 diftake = None
-                                print("\n\n")
 
                                 try:
                                     for up, tp in statedic_of_pepdic_cor[first][peptide]:
@@ -8902,7 +9155,7 @@ def r_heat_map():
                         predicted_labels = torch.argmax(predictions, dim=1).cpu().numpy()
                         augmented_predicted_labels.append(predicted_labels)
                     transposed = list(zip(*augmented_predicted_labels))
-                    predicted_labels = [mode(group) for group in transposed]
+                    predicted_labels = [custom_prediction(group) for group in transposed]
 
     #                X_data = torch.tensor(X_data).float().permute(0, 3, 1, 2)
     #                with torch.no_grad():
@@ -8928,14 +9181,27 @@ def r_heat_map():
                 ws = wb[sheet_name]
                 wb.remove(ws)
                 
+        return "Success"
+                
     except Exception as e:
         error_message = traceback.format_exc() 
         print(error_message)
         tk.messagebox.showerror("Unknown Error in Linear Map Creation", error_message)
+        return "Failure"
 
 all_predicted_labels_lengths = {}
             
-        
+def custom_prediction(group):
+    unique_vals = set(group)
+    if len(unique_vals) == 1:
+        return group[0]
+    elif unique_vals == {0, 1}:
+        return 1
+    elif unique_vals == {0, 4}:
+        return 4
+    else:
+        return mode(group)
+    
 def set_prolines_to_none(predicted_labels_list, statename):
     if statename in new_dic_of_dif_list.keys():
         difpair = new_dic_of_dif_list[statename]
@@ -8998,10 +9264,12 @@ def shuffle_x_rows(X_test):
 
 def r_uptake_plots():
     try:
+        temp_folder_path = tempfile.mkdtemp()
         global a_horizontal, a_vertical
         last_filled_position = (0, 0)
         title_fontsize = 8 
-        pdf_pages = PdfPages('uptake_plots.pdf')
+        pdf_path = os.path.join(temp_folder_path, 'uptake_plots.pdf')
+        pdf_pages = PdfPages(pdf_path)
         if a_vertical is True:
             fig, axes = plt.subplots(8, 6, figsize=(8.5, 11))
         if a_horizontal is True:
@@ -9083,6 +9351,7 @@ def r_uptake_plots():
                             axes[row, col].set_yticks([])
                         empty_protein_boxes = []
                         pdf_pages.savefig(fig)
+                        fig.savefig(os.path.join(temp_folder_path, f"uptake_page_{page_count}.png"), dpi=600)
                         plt.close(fig)
                         if idx < len(new_sorted_all_peptides) - 1:
                             if a_vertical is True:
@@ -9247,9 +9516,9 @@ def r_uptake_plots():
                 
                         if correction is True:
                             up_list = [z * max_theo for z in up_list]
-                            sd_list = [z * max_theo if z != np.nan else np.nan for z in sd_list]
+                            sd_list = [z * max_theo if not np.isnan(z) else np.nan for z in sd_list]
                             
-                        SE_list = [z / np.sqrt(float(SE_num_entry.get())) if z != np.nan else np.nan for z in sd_list]
+                        SE_list = [z / np.sqrt(float(SE_num_entry.get())) if not np.isnan(z) else np.nan for z in sd_list]
 
                         for order, st in order_state_dic.items():
                             if st == state:
@@ -9280,6 +9549,7 @@ def r_uptake_plots():
                     axes[row, col].set_yticks([])
                 empty_protein_boxes = []
                 pdf_pages.savefig(fig)
+                fig.savefig(os.path.join(temp_folder_path, f"uptake_page_{page_count}.png"), dpi=600)
                 plt.close(fig)
                 if idx < len(new_sorted_all_peptides) - 1:
                     if a_vertical is True:
@@ -9305,6 +9575,7 @@ def r_uptake_plots():
 
         if (working_idx + 1) % 48 != 0 or idx == len(new_sorted_all_peptides) - 1:
             pdf_pages.savefig(fig)
+            fig.savefig(os.path.join(temp_folder_path, f"uptake_page_{page_count}.png"), dpi=600)
         plt.close(fig)
 
         fig_legend = plt.figure(figsize=(8.5, 11))
@@ -9312,11 +9583,13 @@ def r_uptake_plots():
         ax_legend.legend(handles=line_legend_entries, loc='center', frameon=True)
         ax_legend.axis('off')
         pdf_pages.savefig(fig_legend)
+        fig_legend.savefig(os.path.join(temp_folder_path, "uptake_legend.png"), dpi=600)
         plt.close(fig_legend)
 
         pdf_pages.close()
 
         increase_progress(2)
+        return temp_folder_path
 
 
 
@@ -9325,7 +9598,8 @@ def r_uptake_plots():
     except Exception as e:
         error_message = traceback.format_exc() 
         print(error_message)
-        tk.messagebox.showerror("Unknown Error in Uptake Plots", error_message)          
+        tk.messagebox.showerror("Unknown Error in Uptake Plots", error_message)    
+        return None
        
                 
 
@@ -9530,49 +9804,54 @@ def save_wb():
                     
     
     def get_user_title():
-        #print("getting user title")
-        if heatmap_bt_on:
-            r_make_pretty_linearmap()
-        for sheet_name in wb.sheetnames:
-            sheet = wb[sheet_name]
-            if sheet_name.endswith("_cond") or sheet_name.endswith("_dif"):
-                if enumerate_residues_var.get() == 0:
-                    if sheet_name.endswith("_cond"):
-                        for i, column in enumerate(sheet.columns):
-                            sheet.column_dimensions[column[0].column_letter].width = "2.94"
-                        for i, row in enumerate(sheet.rows):
-                            sheet.row_dimensions[row[0].row].height = "30"
-                        for row in sheet.iter_rows():
-                            for cell in row:
-                                if cell.row >= 3 and cell.column >= 2:  
-                                    if cell.font:
-                                        new_font = Font(name=cell.font.name, size=16, color=cell.font.color)
-                                        cell.font = new_font
+        try:
+            #print("getting user title")
+            if heatmap_bt_on and heatmap_outcome == "Success":
+                r_make_pretty_linearmap()
+            for sheet_name in wb.sheetnames:
+                sheet = wb[sheet_name]
+                if sheet_name.endswith("_cond") or sheet_name.endswith("_dif"):
+                    if enumerate_residues_var.get() == 0:
+                        if sheet_name.endswith("_cond"):
+                            for i, column in enumerate(sheet.columns):
+                                sheet.column_dimensions[column[0].column_letter].width = "2.94"
+                            for i, row in enumerate(sheet.rows):
+                                sheet.row_dimensions[row[0].row].height = "30"
+                            for row in sheet.iter_rows():
+                                for cell in row:
+                                    if cell.row >= 3 and cell.column >= 2:  
+                                        if cell.font:
+                                            new_font = Font(name=cell.font.name, size=16, color=cell.font.color)
+                                            cell.font = new_font
 
-                    for row in sheet.iter_rows(min_row=2, max_row=2):
-                        sheet.row_dimensions[2].height = 20
-                        for cell in row:
-                            cell.font = Font(name="Courier New", size=20)
-                    for row in sheet.iter_rows(min_row=1, max_row=1):
-                        sheet.row_dimensions[1].height = 20
-                        row[1].font = Font(name="Courier New", size=14)
-                        for i, cell in enumerate(row[2:], start=2):
-                            if cell.value == None:
-                                continue
-                            elif cell.value % 10 == 0:
-                                try:
-                                    row[i-1].value = cell.value
-                                    sheet.merge_cells(start_row=cell.row, start_column=row[i-1].column, end_row=cell.row, end_column=row[i+1].column)
-                                    row[i-1].alignment = Alignment(horizontal="center")
-                                    row[i-1].font = Font(name="Courier New", size=14)  
-                                except:
-                                    print("Excepting during cell numbering cell merge")
-                            else:
-                                cell.value = None
-                    for cell in sheet["A"]:
-                        cell.font = Font(name="Courier New", size=14, bold=True)
-                        cell.alignment = Alignment(horizontal="center") 
-                        sheet.column_dimensions["A"].width = 15  
+                        for row in sheet.iter_rows(min_row=2, max_row=2):
+                            sheet.row_dimensions[2].height = 20
+                            for cell in row:
+                                cell.font = Font(name="Courier New", size=20)
+                        for row in sheet.iter_rows(min_row=1, max_row=1):
+                            sheet.row_dimensions[1].height = 20
+                            row[1].font = Font(name="Courier New", size=14)
+                            for i, cell in enumerate(row[2:], start=2):
+                                if cell.value == None:
+                                    continue
+                                elif cell.value % 10 == 0:
+                                    try:
+                                        row[i-1].value = cell.value
+                                        sheet.merge_cells(start_row=cell.row, start_column=row[i-1].column, end_row=cell.row, end_column=row[i+1].column)
+                                        row[i-1].alignment = Alignment(horizontal="center")
+                                        row[i-1].font = Font(name="Courier New", size=14)  
+                                    except:
+                                        print("Excepting during cell numbering cell merge")
+                                else:
+                                    cell.value = None
+                        for cell in sheet["A"]:
+                            cell.font = Font(name="Courier New", size=14, bold=True)
+                            cell.alignment = Alignment(horizontal="center") 
+                            sheet.column_dimensions["A"].width = 15  
+        
+        except:
+            tk.messagebox.showerror("File Already Saved", "File has already been saved. Please rerun visualizations if you need to save elsewhere")
+            return
         
         global mapviewer_bt
         try:
@@ -9618,27 +9897,107 @@ def save_wb():
 
     global tit_bt
     tit_bt = tk.Button(window, text="Save Workbook", command=get_user_title)
-    tit_bt.place(x=1290, y=260)
+    tit_bt.place(x=1290, y=300)
     
 
-def save_pdf():
+#def save_pdf():  #old
+#    increase_progress(1)
+#    global pdf_bt
+#    def get_pdf_title():
+#        pdf_tit = filedialog.asksaveasfilename(defaultextension=".pdf",
+#                                            filetypes=[("PDF files", "*.pdf")])
+#        existing_file_path = "uptake_plots.pdf"
+#        if pdf_tit:
+#            if not pdf_tit.endswith(".pdf"):
+#                pdf_tit += ".pdf"
+#            shutil.copy(existing_file_path, pdf_tit)
+#            tk.messagebox.showinfo("Save PDF", f"The PDF has been saved as '{pdf_tit}'.")
+#        else:
+#            tk.messagebox.showwarning("Save PDF", "No file path selected. The PDF was not saved.")
+#    
+#    global pdf_bt
+#    pdf_bt = tk.Button(window, text="Save Uptake Plots", command=get_pdf_title)
+#    pdf_bt.place(x=1285, y=290)
+#    
+#    run_bt.config(state="normal")
+#    run_bt.config(relief="raised")
+                           
+def save_pdf(source_folder_path):
     increase_progress(1)
     global pdf_bt
     def get_pdf_title():
-        pdf_tit = filedialog.asksaveasfilename(defaultextension=".pdf",
-                                            filetypes=[("PDF files", "*.pdf")])
-        existing_file_path = "uptake_plots.pdf"
-        if pdf_tit:
-            if not pdf_tit.endswith(".pdf"):
-                pdf_tit += ".pdf"
-            shutil.copy(existing_file_path, pdf_tit)
-            tk.messagebox.showinfo("Save PDF", f"The PDF has been saved as '{pdf_tit}'.")
+        new_folder_location = filedialog.askdirectory(title="Select the destination folder")
+        
+        if new_folder_location:
+            new_folder_path = os.path.join(new_folder_location, "Uptake Plots")
+
+            try:
+                shutil.copytree(source_folder_path, new_folder_path)
+                messagebox.showinfo("Save Folder", f"The folder has been saved to '{new_folder_path}'.")
+                shutil.rmtree(source_folder_path)
+            except Exception as e:
+                messagebox.showerror("Error", f"An error occurred while copying the folder: {e}")
         else:
-            tk.messagebox.showwarning("Save PDF", "No file path selected. The PDF was not saved.")
+            messagebox.showwarning("Save Folder", "No folder path selected. The folder was not saved.")
+        
     
     global pdf_bt
     pdf_bt = tk.Button(window, text="Save Uptake Plots", command=get_pdf_title)
-    pdf_bt.place(x=1285, y=290)
+    pdf_bt.place(x=1285, y=330)
+    
+    run_bt.config(state="normal")
+    run_bt.config(relief="raised")
+    
+    
+def save_butterfly(source_folder_path):
+    increase_progress(1)
+    global butterfly_title_bt
+    def get_butterfly_folder_title():
+        new_folder_location = filedialog.askdirectory(title="Select the destination folder")
+        
+        if new_folder_location:
+            new_folder_path = os.path.join(new_folder_location, "SavedButterflies")
+
+            try:
+                shutil.copytree(source_folder_path, new_folder_path)
+                messagebox.showinfo("Save Folder", f"The folder has been saved to '{new_folder_path}'.")
+                shutil.rmtree(source_folder_path)
+            except Exception as e:
+                messagebox.showerror("Error", f"An error occurred while copying the folder: {e}")
+        else:
+            messagebox.showwarning("Save Folder", "No folder path selected. The folder was not saved.")
+        
+    
+    global butterfly_title_bt
+    butterfly_title_bt = tk.Button(window, text="Save Butterfly Plots", command=get_butterfly_folder_title)
+    butterfly_title_bt.place(x=1280, y=360)
+    
+    run_bt.config(state="normal")
+    run_bt.config(relief="raised")
+    
+    
+def save_PCA(source_folder_path):
+    increase_progress(1)
+    global PCA_title_bt
+    def get_PCA_folder_title():
+        new_folder_location = filedialog.askdirectory(title="Select the destination folder")
+        
+        if new_folder_location:
+            new_folder_path = os.path.join(new_folder_location, "SavedPCA")
+
+            try:
+                shutil.copytree(source_folder_path, new_folder_path)
+                messagebox.showinfo("Save Folder", f"The folder has been saved to '{new_folder_path}'.")
+                shutil.rmtree(source_folder_path)
+            except Exception as e:
+                messagebox.showerror("Error", f"An error occurred while copying the folder: {e}")
+        else:
+            messagebox.showwarning("Save Folder", "No folder path selected. The folder was not saved.")
+        
+    
+    global PCA_title_bt
+    PCA_title_bt = tk.Button(window, text="Save PCA Plots", command=get_PCA_folder_title)
+    PCA_title_bt.place(x=1292, y=390)
     
     run_bt.config(state="normal")
     run_bt.config(relief="raised")
@@ -9653,7 +10012,7 @@ def on_closing_mapviewer():
 def create_mapviewer_bt():
     global mapviewer_bt
     mapviewer_bt = tk.Button(window, text="Localized Difference Editor", command=open_mapviewer)
-    mapviewer_bt.place(x=1260, y=230)
+    mapviewer_bt.place(x=1260, y=270)
     
     run_bt.config(state="normal")
     run_bt.config(relief="raised")
@@ -9854,7 +10213,7 @@ def create_pictures(event=None):
     color_mapping = {}
     for i, item in enumerate(new_items_list):
         if i in false_item_index_list:
-            color_mapping[i] = "#000000"
+            color_mapping[i] = "#000000" 
             continue
         color_mapping[i] = "#" + str(item)
     color_mapping["x"] = "#FFFFFF"
@@ -9946,7 +10305,7 @@ def create_pictures(event=None):
     tk.Label(mapviewer, text="0 - Insignificant", font=("Arial", 8)).place(x=12, y=25)
     tk.Label(mapviewer, text="Difference", font=("Arial", 8)).place(x=20, y=40)
     
-    tk.Label(mapviewer, text="1 - Questionable", font=("Arial", 8)).place(x=12, y=60)
+    tk.Label(mapviewer, text="1 - Validation Needed", font=("Arial", 8)).place(x=12, y=60)
     tk.Label(mapviewer, text="Protection", font=("Arial", 8)).place(x=20, y=75)
     
     tk.Label(mapviewer, text="2 - Significant", font=("Arial", 8)).place(x=12, y=95)
@@ -9954,7 +10313,7 @@ def create_pictures(event=None):
     
     tk.Label(mapviewer, text="3 - No Coverage", font=("Arial", 8)).place(x=12, y=130)
     
-    tk.Label(mapviewer, text="4 - Questionable", font=("Arial", 8)).place(x=12, y=150)
+    tk.Label(mapviewer, text="4 - Validation Needed", font=("Arial", 8)).place(x=12, y=150)
     tk.Label(mapviewer, text="Deprotection", font=("Arial", 8)).place(x=20, y=165)
     
     tk.Label(mapviewer, text="5 - Significant", font=("Arial", 8)).place(x=12, y=185)
@@ -10116,10 +10475,10 @@ def export_to_pymol(ws, timepoint_index, current_state):
 
 
 
-        alignments = align_sequences(pdb_sequence, your_sequence)[0]
+        alignments = align_sequences(pdb_sequence, your_sequence, all_values)[0]
         print(alignments)
-        index_mapping = map_indices(alignments, first_residue_number)
-
+        index_mapping = map_indices(alignments, first_residue_number, first_dif, your_sequence, all_values)
+        
 
         color_commands = []
         color_mapping2 = {}
@@ -10129,7 +10488,7 @@ def export_to_pymol(ws, timepoint_index, current_state):
             color_command = f"set_color {color_name}, {rgb_color}"
             color_commands.append(color_command)
             color_mapping2[value] = color_name
-
+            
         new_commands = generate_pymol_commands(index_mapping, all_values, color_mapping2, chain_id)
         if new_commands == False:
             return
@@ -10179,62 +10538,94 @@ def extract_sequence_and_first_residue_from_pdb(pdb_file_path, chain_id):
                 else:
                     return '', None
 
-def align_sequences(seq1, seq2):
+def align_sequences(seq1, seq2, all_values):
     aligner = Align.PairwiseAligner()
 
     # Set the alignment method and scoring
     aligner.mode = 'global'  # Use 'local' for local alignment
     aligner.match_score = 1  # Score for identical characters
-    aligner.mismatch_score = -1  # Penalty for non-identical characters
-    aligner.open_gap_score = -0.5  # Penalty for opening a gap
-    aligner.extend_gap_score = -0.1  # Penalty for extending a gap
-
+    aligner.mismatch_score = -0.5  # Penalty for non-identical characters
+    aligner.open_gap_score = -2  # Penalty for opening a gap
+    aligner.extend_gap_score = -0.5  # Penalty for extending a gap
+    
     # Perform the alignment
     alignments = aligner.align(seq1, seq2)
     return alignments
 
-def map_indices(alignments, first_residue_number):
-    target_alignment = alignments[0]
-    q_alignment = alignments[1]
+def map_indices(alignments, first_residue_number, first_dif, your_sequence, all_values):
+    target_alignment = alignments[0] ##pdb sequence
+    q_alignment = alignments[1] ## protein sequence
     
+    num_to_first_common_from_seq = 0
+    if sum([1 for residue in seqlist_dic[first_dif] if residue != "A"]) > 0:
+        given_sequence = "".join(seqlist_dic[first_dif])
+        given_vs_extracted_alignments = align_sequences(given_sequence, your_sequence, all_values)[0]
+        
+        given_alignment = given_vs_extracted_alignments[0]  ##sequence input by user
+        extracted_alignment = given_vs_extracted_alignments[1]  ##protein sequence
+        
+        both_started = False
+        for i, (given_char, extracted_char) in enumerate(zip(given_alignment, extracted_alignment)): 
+            if both_started == False:
+                if given_char != '-' and extracted_char != '-' and given_alignment[i+1] != '-' and extracted_alignment[i+1] != "-":
+                    both_started = True
+                    num_to_first_common_from_seq = i
+                    break
+                    
     
-    target_index = 0
-    query_index = 0
     index_mapping = {}
     
     both_started = False
-    for target_char, query_char in zip(target_alignment, q_alignment):        
-        if target_char != '-':
-            if query_char != '-':
-                both_started = True
-                # Both characters are not gaps
-                index_mapping[query_index] = target_index + first_residue_number
-            query_index += 1
-            target_index += 1
-        elif query_char != '-':
-            # Only target character is a gap
-            query_index += 1
-            if both_started == True:
-                target_index += 1
+    target_before_query = False
+    false_alignment_padding = 0
+    for i, (target_char, query_char) in enumerate(zip(target_alignment, q_alignment)): 
+        if both_started == False:
+            if target_char != '-' and target_alignment[i+1] != '-':
+                if query_char != '-' and q_alignment[i+1] != "-":
+                    both_started = True
+                    num_to_first_common = i
+                else:
+                    target_before_query = True
+            if target_char != '-' and query_char != '-' and (target_alignment[i+1] == '-' or q_alignment[i+1] == "-"):
+                false_alignment_padding += 1
+            
                 
+        if both_started == True:
+            if target_before_query == True:  #like GK
+                index_mapping[i + first_residue_number] = i + num_to_first_common_from_seq - num_to_first_common
+            elif target_before_query == False: ##like SpyTag KRAS
+                index_mapping[i + first_residue_number - num_to_first_common + false_alignment_padding] = i + num_to_first_common_from_seq
+          
+            
     return index_mapping
-
-
-
+            
+                        
 
 
 def generate_pymol_commands(mapping, all_values, color_mapping2, chain_id):
     new_commands = []
-    for index, value in enumerate(all_values):
-        if index in mapping:
-            pdb_index = mapping[index]
+    
+    for pdbnum, valnum in mapping.items():
+        if len(all_values) > valnum:
             try:
-                color = color_mapping2[value]
+                color = color_mapping2[all_values[valnum]]
             except:
                 tk.messagebox.showerror("Color Error", "At least one residue has been labeled with a dissalowed number. Please make sure all residues are labelled with a number available in the legend and try again.")
                 mapviewer.focus_set()
                 return False
-            new_commands.append(f"color {color}, chain {chain_id} and resi {pdb_index}")
+            new_commands.append(f"color {color}, chain {chain_id} and resi {pdbnum}")
+            
+    
+#    for index, value in enumerate(all_values):
+#        if index in mapping:
+#            pdb_index = mapping[index]
+#            try:
+#                color = color_mapping2[value]
+#            except:
+#                tk.messagebox.showerror("Color Error", "At least one residue has been labeled with a dissalowed number. Please make sure all residues are labelled with a number available in the legend and try again.")
+#                mapviewer.focus_set()
+#                return False
+#            new_commands.append(f"color {color}, chain {chain_id} and resi {pdb_index}")
     return new_commands
 
         
@@ -10349,6 +10740,7 @@ def excel_cell(row, col):
 
 def generate_best_fit_sequence(protein):
     protein_and_squiggle = protein + "~"
+    all_ks = []
     for state in states:
         if state.startswith(protein_and_squiggle):
             new_sequence = {}
@@ -10356,15 +10748,12 @@ def generate_best_fit_sequence(protein):
                 start = startvallist[state][i]
                 for k, residue in enumerate(peptide, start=start):
                     new_sequence[k] = residue
-
-#            min_num = startvallist[state][0]
-#            max_num = startvallist[state][-1]
-#
-#            for i in range(min_num, max_num):
-#                if i not in new_sequence.keys():
-#                    new_sequence[i] = "-"
-
-
+                    all_ks.append(k)
+                    
+            for i in range(min(all_ks), max(all_ks) + 1):
+                if i not in new_sequence:
+                    new_sequence[i] = "A"
+                    
             # Sort the keys of the dictionary
             sorted_keys = sorted(new_sequence.keys())
 
