@@ -6,7 +6,7 @@ HDXWizard is written completely in python (3.11.3) and uses Tkinter (8.6) for gr
 
 ![Alt text](GUI_image.jpg)
 
-[Cohen Z.A. et al. Poster ASMS 2024](MP 300_HDXWizard A Software for Customizable Hydrogen Deuterium Exchange Data Visualization.pdf)
+[Cohen Z.A. et al. Poster ASMS 2024](MP%20300_HDXWizard%20A%20Software%20for%20Customizable%20Hydrogen%20Deuterium%20Exchange%20Data%20Visualization.pdf)
 
 HDXWizard was developed at Northeastern University.
 
