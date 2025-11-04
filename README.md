@@ -4,7 +4,7 @@ HDXWizard is a free, open source software for processing and displaying hydrogen
 
 HDXWizard is written completely in python (3.11.3) and uses Tkinter (8.6) for graphical user interface, Numpy (1.24.3) for calculations, MatPlotLib (3.7.2) for plot generation, PyMuPDF (1.23.7) for image processing, Biopython (1.82) for pairwise alignment, PyTorch (2.3.1) for machine learning, and Openpyxl (3.1.2), Pandas (2.0.1), and Xlwings(0.30.12) for reading, writing, and representing excel sheets. Please see the requirements.txt file for up to date version information.
 
-![Alt text](GUI_Image.jpg)
+![Alt text](GUI_image.jpg)
 
 HDXWizard was developed at Northeastern University.
 
