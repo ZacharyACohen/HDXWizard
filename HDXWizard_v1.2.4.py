@@ -922,7 +922,7 @@ def skip_sequence_off():
 def open_info():
     try:
 #        os.startfile("HDXWizard_Operating_Instructions_1.0.pdf")
-        open_file("HDXWizard_Operating_Instructions_1.2.3.pdf")
+        open_file("HDXWizard_Operating_Instructions_1.2.4.pdf")
     except:
         tk.messagebox.showerror("Error", "Cannot find operating instructions file")
 
@@ -1498,22 +1498,22 @@ def heatmap_off():
     heatmap_bt_on = False
 def butterfly_on():
     global butterfly_dif_on
-    butterfly_bt = tk.Button(window, text="Butterfly Differences*",bg="green", fg="white", width=17, command=butterfly_off)
+    butterfly_bt = tk.Button(window, text="Butterfly Differences",bg="green", fg="white", width=17, command=butterfly_off)
     butterfly_bt.place(x=1340, y=200)
     butterfly_dif_on = True
 def butterfly_off():
     global butterfly_dif_on
-    butterfly_bt = tk.Button(window, text="Butterfly Differences*", bg="orange", fg="black", width=17, command=butterfly_on)
+    butterfly_bt = tk.Button(window, text="Butterfly Differences", bg="orange", fg="black", width=17, command=butterfly_on)
     butterfly_bt.place(x=1340, y=200)
     butterfly_dif_on = False
 def PCA_on():
     global PCA_bt_on
-    PCA_bt = tk.Button(window, text="PCA Plot*",bg="green", fg="white", width=17, command=PCA_off)
+    PCA_bt = tk.Button(window, text="PCA Plot",bg="green", fg="white", width=17, command=PCA_off)
     PCA_bt.place(x=1190, y=200)
     PCA_bt_on = True
 def PCA_off():
     global PCA_bt_on
-    PCA_bt = tk.Button(window, text="PCA Plot*", bg="orange", fg="black", width=17, command=PCA_on)
+    PCA_bt = tk.Button(window, text="PCA Plot", bg="orange", fg="black", width=17, command=PCA_on)
     PCA_bt.place(x=1190, y=200)
     PCA_bt_on = False
 
@@ -2652,11 +2652,10 @@ def create_run_box():
     uptake_plot_bt.place(x=1190, y=160)
     heatmap_bt = tk.Button(window, text="Localized Differences", bg="orange", fg="black", width=17, command=lambda: (heatmap_on(), difcond_on(), difmap_on()))
     heatmap_bt.place(x=1340, y=160)
-    butterfly_bt = tk.Button(window, text="Butterfly Differences*", bg="orange", fg="black", width=17, command=butterfly_on)
+    butterfly_bt = tk.Button(window, text="Butterfly Differences", bg="orange", fg="black", width=17, command=butterfly_on)
     butterfly_bt.place(x=1340, y=200)
-    PCA_bt = tk.Button(window, text="PCA Plot*", bg="orange", fg="black", width=17, command=PCA_on)
+    PCA_bt = tk.Button(window, text="PCA Plot", bg="orange", fg="black", width=17, command=PCA_on)
     PCA_bt.place(x=1190, y=200)
-    tk.Label(window, text="Scripts Labelled with * are in developement").place(x=1190, y=420)
     
 def create_uptakeplot_box():
     global correction, uptake_plot_colors, uptake_plot_symbols, show_last, maxD_dash, state_selects, col_entries, sym_entries, size_entries, x_enter, y_enter, linewidth_enter, pep_search_enter, a_horizontal, a_vertical, title_entries, legend_size_entry, leg_ur, leg_ul, leg_bl, leg_br, leg_pos, legend_linewidth_entry, dot_chkval, cplt_chkval
@@ -4087,7 +4086,7 @@ def exp_bt_off():
     except:
         pass
     try:
-        custom_state_bt.destroy()
+#        custom_state_bt.destroy()
         exp_st_lb.destroy()
         maxD_peptides_lb.destroy()
         set_all_bt.destroy()
@@ -6781,18 +6780,86 @@ def r_PCA():
             pca = PCA(n_components=2)
             X_pca = pca.fit_transform(X_scaled)
 
-            plt.figure(figsize=(6, 5))
-            plt.scatter(X_pca[:, 0], X_pca[:, 1])
+#            plt.figure(figsize=(6, 5))
+#            plt.scatter(X_pca[:, 0], X_pca[:, 1])
+#
+#            for i, label in enumerate(statelist):
+#                plt.text(X_pca[i, 0], X_pca[i, 1], label)
+#
+#            plt.xlabel("PC1")
+#            plt.ylabel("PC2")
+#            plt.title(f"{protein}")
+#            plt.grid(True)
+#            plt.tight_layout()
+#            plt.savefig(f'{temp_folder_path}/{protein}.png', dpi=500)
+            
+            # Publication-quality plotting
+            plt.figure(figsize=(5, 4))  # Standard single-column figure size
+            
+            # Use a color cycle for different states
+            colors = plt.cm.tab10(np.linspace(0, 1, len(statelist)))
+            
 
-            for i, label in enumerate(statelist):
-                plt.text(X_pca[i, 0], X_pca[i, 1], label)
+            for i, (label, color) in enumerate(zip(statelist, colors)):
+                label = label.replace(f"{protein}~", "")
+                plt.scatter(X_pca[i, 0], X_pca[i, 1], 
+                           s=50,  # Larger marker size
+#                           c=[color],
+                           edgecolors='black',
+                           linewidths=1,
+                           label=label,
+                           alpha=0.8,
+                           zorder=3)
 
-            plt.xlabel("PC1")
-            plt.ylabel("PC2")
-            plt.title(f"PCA of {protein}")
-            plt.grid(True)
+            
+            # Axis labels with explained variance
+            variance_pc1 = pca.explained_variance_ratio_[0] * 100
+            variance_pc2 = pca.explained_variance_ratio_[1] * 100
+            plt.xlabel(f"PC1 ({variance_pc1:.1f}%)", fontsize=11, fontweight='bold')
+            plt.ylabel(f"PC2 ({variance_pc2:.1f}%)", fontsize=11, fontweight='bold')
+            
+            # Title
+            plt.title(protein, fontsize=12, fontweight='bold', pad=10)
+            
+            # Grid styling
+            plt.grid(True, alpha=0.3, linestyle='--', linewidth=0.5)
+            
+            # Spine styling
+            ax = plt.gca()
+            ax.spines['top'].set_visible(False)
+            ax.spines['right'].set_visible(False)
+            ax.spines['left'].set_linewidth(1.2)
+            ax.spines['bottom'].set_linewidth(1.2)
+            
+            # Tick parameters
+            ax.tick_params(axis='both', which='major', labelsize=10, 
+                          width=1.2, length=4)
+            
+            
             plt.tight_layout()
-            plt.savefig(f'{temp_folder_path}/{protein}.png', dpi=500)
+            plt.savefig(f'{temp_folder_path}/{protein}.png', 
+                       dpi=600,  # High resolution
+                       bbox_inches='tight',
+                       facecolor='white',
+                       edgecolor='none')
+            
+            fig_legend = plt.figure(figsize=(3, len(statelist) * 0.3))
+            handles, labels = ax.get_legend_handles_labels()
+            fig_legend.legend(handles, labels, 
+                             frameon=True, 
+                             fancybox=False, 
+                             edgecolor='black',
+                             fontsize=10,
+                             loc='center',
+                             ncol=1)
+            fig_legend.tight_layout()
+            fig_legend.savefig(f'{temp_folder_path}/{protein}_legend.png',
+                              dpi=600,
+                              bbox_inches='tight',
+                              facecolor='white',
+                              edgecolor='none')
+
+            plt.close('all')  # Close to free memory
             
         increase_progress(2)
         return temp_folder_path
@@ -6804,7 +6871,7 @@ def r_PCA():
         return None
 
    
-    
+
 def r_butterfly_dif():
     
     try:
@@ -6918,60 +6985,154 @@ def r_butterfly_dif():
                     series_data[series] = {'x': [], 'y': []}
                 series_data[series]['x'].append(x)
                 series_data[series]['y'].append(y)
-
-            plt.figure(figsize=(8, 6))
-            plt.axhline(0, color='black', linewidth=1)
-
-
-            for series, coords in series_data.items():
+                
+            if exp_bt_on_c and maxD_rfu_dif_on_c == True:
+                if series_data:
+                    last_series = list(series_data.keys())[-1]
+                    del series_data[last_series]
+                
+            plt.figure(figsize=(8, 5))
+            
+            # Zero reference line
+            plt.axhline(0, color='black', linewidth=1.5, zorder=1)
+            
+            # Color scheme for timepoints
+            colors = plt.cm.viridis(np.linspace(0, 0.9, len(series_data)))
+            
+            # Plot each timepoint series
+            for (series, coords), color in zip(series_data.items(), colors):
                 sorted_points = sorted(zip(coords['x'], coords['y']))
                 xs, ys = zip(*sorted_points)
                 xs = np.array(xs)
                 ys = np.array(ys)
+                
+                n = len(xs)
+                f1 = 450 / n ** 0.85
+                f2 = 2793 / n ** 1.303
+                if n <= 190:
+                    point_size = f1
+                elif n >= 275:
+                    point_size = f2
+                else:
+                    t = (n - 190) / (275 - 190)
+                    point_size = (1 - t) * f1 + t * f2
+                    
+                if len(xs) < 200:
+                    linewidth=1
+                else:
+                    linewidth=0.5
 
-                plt.scatter(xs, ys, s=20)  
-
+                # Scatter points
+                plt.scatter(xs, ys, s=point_size, 
+                           linewidths=0.3, zorder=3)
+                
+                # Smooth interpolation
                 if len(xs) > 1:
-                    x_smooth = np.linspace(xs.min(), xs.max(), 300)
+                    x_smooth = np.linspace(xs.min(), xs.max(), len(xs)*3)
                     pchip = PchipInterpolator(xs, ys)
                     y_smooth = pchip(x_smooth)
-                    plt.plot(x_smooth, y_smooth, label=f'{series}')
+                    plt.plot(x_smooth, y_smooth, label=f'{series}', 
+                            zorder=2, linewidth=1)
                 else:
-                    plt.plot(xs, ys, label=f'{series}')
-
-            xtick_positions = xtick_positions = list(range(len(pepnum_starts)))
-            xtick_labels = [f"{pepnum_starts[i]}-{pepnum_ends[i]}" if not pepnum_asterisks[i] else f"{pepnum_starts[i]}-{pepnum_ends[i]}*" for i in xtick_positions]
-            plt.xticks(xtick_positions, xtick_labels, rotation=90, fontsize=8)
-
-
-
-            max_absolute_value_difference = max(abs(tup[2]) for tup in plot_values)
-
-            plt.xlabel('Peptide Fragments')
-            if exp_bt_on_c and maxD_rfu_dif_on_c == True:
-                plt.ylabel('\u0394' + " RFU")
-                ymax = math.ceil(max_absolute_value_difference / 0.5) * 0.5
-                plt.ylim(-ymax, ymax)
+                    plt.plot(xs, ys, label=f'{series}', 
+                            zorder=2)
+            
+            # X-axis: peptide positions
+            xtick_positions = list(range(len(pepnum_starts)))
+            xtick_labels = [f"{pepnum_starts[i]}-{pepnum_ends[i]}" if not pepnum_asterisks[i] 
+                           else f"{pepnum_starts[i]}-{pepnum_ends[i]}*" 
+                           for i in xtick_positions]
+#            plt.xticks(xtick_positions, xtick_labels, rotation=90, fontsize=8)
+            
+            n_peptides = len(xtick_positions)
+            if n_peptides <= 20:
+                # Show all labels for small number of peptides
+                plt.xticks(xtick_positions, xtick_labels, rotation=90, fontsize=8)
+            elif n_peptides <= 50:
+                # Show every other label
+                step = 2
+                plt.xticks([pos for i, pos in enumerate(xtick_positions) if i % step == 0],
+                           [label for i, label in enumerate(xtick_labels) if i % step == 0],
+                           rotation=90, fontsize=7)
+            elif n_peptides<=225:
+                # Show every 5th label for many peptides
+                step = 5
+                plt.xticks([pos for i, pos in enumerate(xtick_positions) if i % step == 0],
+                           [label for i, label in enumerate(xtick_labels) if i % step == 0],
+                           rotation=90, fontsize=7)
+            elif n_peptides<=400:
+                step = 8
+                plt.xticks([pos for i, pos in enumerate(xtick_positions) if i % step == 0],
+                           [label for i, label in enumerate(xtick_labels) if i % step == 0],
+                           rotation=90, fontsize=5)
             else:
-                plt.ylabel('\u0394' + "D")
-                ymax = math.ceil(max_absolute_value_difference / 0.5) * 0.5
-                plt.ylim(-ymax, ymax)
-            plt.title(difname)
+                step = 10
+                plt.xticks([pos for i, pos in enumerate(xtick_positions) if i % step == 0],
+                           [label for i, label in enumerate(xtick_labels) if i % step == 0],
+                           rotation=90, fontsize=4)
+    
+            
+            # Y-axis limits
+            max_absolute_value_difference = max(abs(tup[2]) for tup in plot_values)
+            y_round = 0.05 if (exp_bt_on_c and maxD_rfu_dif_on_c == True) else 0.5
+            ymax = math.ceil(max_absolute_value_difference / y_round) * y_round
+            plt.ylim(-ymax, ymax)
             plt.grid(True, axis='y')
-            legend = plt.legend()
-            legend.remove()
+            
+            # Axis labels
+            plt.xlabel('Peptides', fontsize=11, fontweight='bold')
+            if exp_bt_on_c and maxD_rfu_dif_on_c == True:
+                plt.ylabel('ΔRFU', fontsize=11, fontweight='bold')
+            else:
+                plt.ylabel('ΔD', fontsize=11, fontweight='bold')
+            
+            # Title
+            plt.title(difname, fontsize=12, fontweight='bold', pad=10)
+            
+            # Grid styling - only horizontal
+            plt.grid(True, axis='y', alpha=0.3, linestyle='--', linewidth=0.5)
+            
+            # Spine styling
+            ax = plt.gca()
+            ax.spines['top'].set_visible(False)
+            ax.spines['right'].set_visible(False)
+            ax.spines['left'].set_linewidth(1.2)
+            ax.spines['bottom'].set_linewidth(1.2)
+            
+            # Tick parameters
+            ax.tick_params(axis='both', which='major', labelsize=10, 
+                          width=1.2, length=4)
+            
             plt.tight_layout()
+            plt.savefig(f'{temp_folder_path}/{difname}.png', 
+                       dpi=600,
+                       bbox_inches='tight',
+                       facecolor='white',
+                       edgecolor='none')
+            
+            # Save legend separately
+            handles, labels = ax.get_legend_handles_labels()
+            if len(handles) > 0:
+                legend_fig = plt.figure(figsize=(3, len(handles) * 0.35))
+                legend_fig.legend(handles, labels,
+                                frameon=True,
+                                fancybox=False,
+                                edgecolor='black',
+                                fontsize=10,
+                                loc='center',
+                                ncol=1)
+                legend_fig.tight_layout()
+                legend_fig.savefig(f'{temp_folder_path}/{difname}_legend.png',
+                                  dpi=600,
+                                  bbox_inches='tight',
+                                  facecolor='white',
+                                  edgecolor='none')
+            
+            plt.close('all')
 
-            plt.savefig(f'{temp_folder_path}/{difname}.png', dpi=500)
 
-            legend_fig = plt.figure()
-            ax = legend_fig.add_subplot(111)
-            ax.legend(handles=legend.legend_handles, labels=[text.get_text() for text in legend.get_texts()], loc='center')
-            ax.axis('off')
-            legend_fig.patch.set_visible(False)
 
-            legend_filename = f'{temp_folder_path}/{difname}_legend.png'
-            legend_fig.savefig(legend_filename, dpi=500, bbox_inches='tight', pad_inches=0.1)
+        
 
         increase_progress(2)
         return temp_folder_path
@@ -6985,7 +7146,6 @@ def r_butterfly_dif():
 
 
 
-        
     
     
     
@@ -7775,45 +7935,7 @@ def r_coincident_chicdif():
                     
                         
                     
-#                    tnum = 0
-#                    for timepoint in s_timepoints[first]:
-#                        if timepoint in s_timepoints[second]:
-#                            if timepoint == 0:
-#                                tnum = tnum + 1
-#                                continue 
-#                            if exp_bt_on_c and maxD_rfu_dif_on_c == True:
-#                                if statedic_of_pepdic_cor[first][peptide][tnum][0] != -99999 and statedic_of_pepdic_cor[second][peptide][tnum][0] != -99999:
-#                                    ws.cell(row=3+pepnum, column=plot_start+3+tnum, value=statedic_of_pepdic_cor[first][peptide][tnum][0] - statedic_of_pepdic_cor[second][peptide][tnum][0])
-#                                    tnum = tnum + 1
-#                                else:
-#                                    ws.cell(row=3+pepnum, column=plot_start+3+tnum, value = -99999)
-#                                    tnum = tnum + 1
-#
-#                            if exp_bt_on_c and maxD_Da_dif_on_c == True:
-#                                if statedic_of_pepdic_cor[first][peptide][tnum][0] != -99999 and statedic_of_pepdic_cor[second][peptide][tnum][0] != -99999:
-#                                    max_theo = get_max_theo(peptide)
-#                                    ws.cell(row=3+pepnum, column=plot_start+3+tnum, value=max_theo*(statedic_of_pepdic_cor[first][peptide][tnum][0] - statedic_of_pepdic_cor[second][peptide][tnum][0]))
-#                                    tnum = tnum + 1
-#                                else:
-#                                    ws.cell(row=3+pepnum, column=plot_start+3+tnum, value = -99999)
-#                                    tnum = tnum + 1
-#
-#                            if theo_bt_on_c and back_exchange == 0:
-#                                if statedic_of_pepdic_raw2[first][peptide][tnum][0] != -99999 and statedic_of_pepdic_raw2[second][peptide][tnum][0] != -99999:
-#                                    ws.cell(row=3+pepnum, column=plot_start+3+tnum, value=statedic_of_pepdic_raw2[first][peptide][tnum][0] - statedic_of_pepdic_raw2[second][peptide][tnum][0])
-#                                    tnum = tnum + 1
-#                                else:
-#                                    ws.cell(row=3+pepnum, column=plot_start+3+tnum, value = -99999)
-#                                    tnum = tnum + 1
-#
-#                            if theo_bt_on_c and back_exchange != 0:
-#                                if statedic_of_pepdic_cor[first][peptide][tnum][0] != -99999 and statedic_of_pepdic_cor[second][peptide][tnum][0] != -99999:
-#                                    max_theo = get_max_theo(peptide)
-#                                    ws.cell(row=3+pepnum, column=plot_start+3+tnum, value=max_theo*(statedic_of_pepdic_cor[first][peptide][tnum][0] - statedic_of_pepdic_cor[second][peptide][tnum][0]))
-#                                    tnum = tnum + 1
-#                                else:
-#                                    ws.cell(row=3+pepnum, column=plot_start+3+tnum, value = -99999)
-#                                    tnum = tnum + 1
+
 
                     ch1 = False
                     ch2 = False
@@ -8373,11 +8495,9 @@ def r_difcond():
                                     for sd, tp in statedic_of_sddic_cor[first][peptide]:
                                         if tp == timepoint:
                                             SD1 = sd
-                                            print(SD1)
                                     for sd, tp in statedic_of_sddic_cor[second][peptide]:
                                         if tp == timepoint:
                                             SD2 = sd
-                                            print(SD2)
                                     if SD1 is not None and SD2 is not None and SD1 != -99999 and SD2 != -99999:
                                         SDs = np.array([SD1, SD2])
                                         diftake_SD = np.sqrt(np.sum(SDs ** 2))
@@ -8661,7 +8781,7 @@ def r_difcond():
                                             if insig_dif_chk.get() == 0:
                                                 row[middle-c].number_format = ';;;'
                                         else:
-                                            print(diftake)
+                                            print(f"diftake: {diftake}")
 
                                         row[middle-c].fill = fill
                                         row[middle-c].font = font
@@ -8893,6 +9013,15 @@ def r_difcond():
                 if sheet_name in wb.sheetnames:
                     del wb[sheet_name]
 
+
+def apply_scaling_to_linear_map(cell_value, linear_map_multiplier, using_linear_map_multiplier=True):
+    if using_linear_map_multiplier:
+        cell_value = cell_value * linear_map_multiplier
+    else:
+        cell_value = (cell_value - 0.35)
+        cell_value = cell_value * linear_map_multiplier
+    return cell_value
+    
 def r_heat_map():
     try:
         for sheet_name in wb.sheetnames:
@@ -8901,6 +9030,7 @@ def r_heat_map():
                 tp_starts = []
 
                 linear_map_multiplier = 0.5/future_linear_map_multiplier
+                
 
                 for i, row in enumerate(sheet.iter_rows(values_only=True)):
                     if row[0] != None and row[0] != "0" and row[0] != 0:
@@ -8926,10 +9056,12 @@ def r_heat_map():
                         for p, cell in enumerate(row):
                             if cell.value is not None and cell.value != -99999:
                                 try:
-                                    cell.value = (cell.value * linear_map_multiplier)
+                                    cell.value = apply_scaling_to_linear_map(cell.value, linear_map_multiplier)
+#                                    cell.value = (cell.value * linear_map_multiplier)
                                 except:
                                     if cell.value == "*":
-                                        cell.value = (row[p+1].value * linear_map_multiplier)
+                                        cell.value = apply_scaling_to_linear_map(row[p+1].value, linear_map_multiplier)
+#                                        cell.value = (row[p+1].value * linear_map_multiplier)
                                     else:
                                         cell.value = None
 
@@ -9220,33 +9352,6 @@ def set_prolines_to_none(predicted_labels_list, statename):
         
     return predicted_labels_list
 
-#def fix_n_min_two_linmap(predicted_labels_list, statename):
-#    if statename in new_dic_of_dif_list.keys():
-#        difpair = new_dic_of_dif_list[statename]
-#        first_dif = difpair[0]
-#        protein = first_dif.split("~")[0]
-#        peptide_indices = []
-#        for peptide in peplist[first_dif]:
-#            startvalues = pro_peptide_starts.get((protein, peptide), None)
-#            startvalue= int(startvalues[0])
-#            for i in range(len(peptide)):
-#                if startvalue+i not in peptide_indices:
-#                    peptide_indices.append(startvalue + i)
-#        print(peptide_indices)
-#        print(len(peptide_indices))
-#        print(len(predicted_labels_list))
-#        print(predicted_labels_list)
-#        for peptide_index in peptide_indices:
-#            if predicted_labels_list[peptide_index-1] == 3:
-#                try:
-#                    predicted_labels_list[peptide_index-1] = 9
-#                except:
-#                    print(peptide_index-1)
-#    
-#    else:
-#        print("Couldn't find difpair")
-#        
-#    return predicted_labels_list
     
 def shuffle_rows(duplicate):
     indices = np.arange(2, 27)
@@ -9623,45 +9728,7 @@ def save_wb():
                     row_data = [""] + row_data
                     target_sheet.append(row_data)
                     target_sheet.append([])
-#                for row in target_sheet.iter_rows():
-#                    if row[1].value is None:
-#                        for cell in row:
-#                            cell.border = Border()
-#                            cell.fill = PatternFill(start_color="FFFFFFFF", end_color="FFFFFFFF", fill_type='solid')
-#                        continue
-#                    for i, cell in enumerate(row):
-#                        if cell.value is None or cell.value == "":
-#                            continue
-#                        cell_v = cell.value
-#                        if cell_v == 1:
-#                            fill = PatternFill(start_color=f"{globals().get(f'p_col_{p_col_length}')}", end_color=f"{globals().get(f'p_col_{p_col_length}')}", fill_type='solid')
-#                        if cell_v == 2:
-#                            fill = PatternFill(start_color=f"{globals().get(f'p_col_{p_col_length-1}')}", end_color=f"{globals().get(f'p_col_{p_col_length-1}')}", fill_type='solid')
-#                        if cell_v == 4:
-#                            fill = PatternFill(start_color=f"{globals().get(f'd_col_{d_col_length}')}", end_color=f"{globals().get(f'd_col_{d_col_length}')}", fill_type='solid')
-#                        if cell_v == 5:
-#                            fill = PatternFill(start_color=f"{globals().get(f'd_col_{d_col_length-1}')}", end_color=f"{globals().get(f'd_col_{d_col_length-1}')}", fill_type='solid')
-#                        if cell_v == 3:
-#                            fill = PatternFill(start_color=b_col_abs, end_color=b_col_abs, fill_type='solid')
-#                        if cell_v == 0:
-#                            fill = PatternFill(start_color=d_col_gtz, end_color=d_col_gtz, fill_type='solid')
-#                        cell.fill = fill
-#                        
-#                        if i == 0:
-#                            pass
-#                        
-#                        elif i == 1:
-#                            cell.border = Border(top=Side(border_style='thin', color='FF000000'),
-#                                    bottom=Side(border_style='thin', color='FF000000'),
-#                                    left=Side(border_style='thin', color='FF000000'))
-#                        elif i == (len(row) - 1):
-#                            cell.border = Border(top=Side(border_style='thin', color='FF000000'),
-#                                    bottom=Side(border_style='thin', color='FF000000'),
-#                                    right=Side(border_style='thin', color='FF000000'))
-#                        else:
-#                            cell.border = Border(top=Side(border_style='thin', color='FF000000'),
-#                                    bottom=Side(border_style='thin', color='FF000000'))
-#                        cell.number_format = ';;;'
+
            
         white_fill = PatternFill(start_color="FFFFFFFF", end_color="FFFFFFFF", fill_type='solid')
         target_sheet_title = "localized differences"
@@ -9900,27 +9967,6 @@ def save_wb():
     tit_bt.place(x=1290, y=300)
     
 
-#def save_pdf():  #old
-#    increase_progress(1)
-#    global pdf_bt
-#    def get_pdf_title():
-#        pdf_tit = filedialog.asksaveasfilename(defaultextension=".pdf",
-#                                            filetypes=[("PDF files", "*.pdf")])
-#        existing_file_path = "uptake_plots.pdf"
-#        if pdf_tit:
-#            if not pdf_tit.endswith(".pdf"):
-#                pdf_tit += ".pdf"
-#            shutil.copy(existing_file_path, pdf_tit)
-#            tk.messagebox.showinfo("Save PDF", f"The PDF has been saved as '{pdf_tit}'.")
-#        else:
-#            tk.messagebox.showwarning("Save PDF", "No file path selected. The PDF was not saved.")
-#    
-#    global pdf_bt
-#    pdf_bt = tk.Button(window, text="Save Uptake Plots", command=get_pdf_title)
-#    pdf_bt.place(x=1285, y=290)
-#    
-#    run_bt.config(state="normal")
-#    run_bt.config(relief="raised")
                            
 def save_pdf(source_folder_path):
     increase_progress(1)
@@ -9962,6 +10008,20 @@ def save_butterfly(source_folder_path):
                 shutil.copytree(source_folder_path, new_folder_path)
                 messagebox.showinfo("Save Folder", f"The folder has been saved to '{new_folder_path}'.")
                 shutil.rmtree(source_folder_path)
+                butterfly_title_bt.destroy()
+            except FileExistsError:
+                overwrite = messagebox.askyesno("Folder Exists", f"The folder '{new_folder_path}' already exists.\nDo you want to overwrite it?")
+                if overwrite:
+                    try:
+                        shutil.rmtree(new_folder_path)
+                        shutil.copytree(source_folder_path, new_folder_path)
+                        messagebox.showinfo("Save Folder", f"The folder has been saved to '{new_folder_path}'.")
+                        shutil.rmtree(source_folder_path)
+                        butterfly_title_bt.destroy()
+                    except Exception as e:
+                        messagebox.showerror("Error", f"Failed to overwrite folder: {e}")
+                else:
+                    messagebox.showinfo("Save Cancelled", "The folder was not overwritten.")
             except Exception as e:
                 messagebox.showerror("Error", f"An error occurred while copying the folder: {e}")
         else:
@@ -9989,8 +10049,22 @@ def save_PCA(source_folder_path):
                 shutil.copytree(source_folder_path, new_folder_path)
                 messagebox.showinfo("Save Folder", f"The folder has been saved to '{new_folder_path}'.")
                 shutil.rmtree(source_folder_path)
+                PCA_title_bt.destroy()
+            except FileExistsError:
+                overwrite = messagebox.askyesno("Folder Exists", f"The folder '{new_folder_path}' already exists.\nDo you want to overwrite it?")
+                if overwrite:
+                    try:
+                        shutil.rmtree(new_folder_path)
+                        shutil.copytree(source_folder_path, new_folder_path)
+                        messagebox.showinfo("Save Folder", f"The folder has been saved to '{new_folder_path}'.")
+                        shutil.rmtree(source_folder_path)
+                        PCA_title_bt.destroy()
+                    except Exception as e:
+                        messagebox.showerror("Error", f"Failed to overwrite folder: {e}")
+                else:
+                    messagebox.showinfo("Save Cancelled", "The folder was not overwritten.")
             except Exception as e:
-                messagebox.showerror("Error", f"An error occurred while copying the folder: {e}")
+                messagebox.showerror("Error", f"An unhandled error occurred while copying the folder: {e}")
         else:
             messagebox.showwarning("Save Folder", "No folder path selected. The folder was not saved.")
         
@@ -10421,15 +10495,6 @@ def create_pictures(event=None):
     h_canvas.config(scrollregion=h_canvas.bbox("all"))
     v_canvas.config(scrollregion=v_canvas.bbox("all"))
     
-#    def on_canvas_scroll(event):
-#        h_canvas.xview_scroll(-1 * (event.delta // 120), "units")
-#        m_canvas.xview_scroll(-1 * (event.delta // 120), "units")
-#        v_canvas.xview_scroll(-1 * (event.delta // 120), "units")
-#
-#
-#    h_canvas.bind("<MouseWheel>", on_canvas_scroll)
-#    m_canvas.bind("<MouseWheel>", on_canvas_scroll)
-#    v_canvas.bind("<MouseWheel>", on_canvas_scroll)
         
 
         
